@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Home.Component.Playlist.PlaylistPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:playlist="using:YiChao.Screens.Home.Component.Playlist"
+    xmlns:ui="using:YiChao.Ui.Component">
+
+    <!--
+        播放列表面板：横屏下占据整个窗口自下方升起，与忆潮横屏的列表页同形。
+        面板底色固定为深色——这一片压在封面衍生背景之上，与主题无关。
+    -->
+    <Grid x:Name="RootLayer" Visibility="Collapsed">
+        <Grid
+            x:Name="Backdrop"
+            Background="#59000000"
+            Opacity="0"
+            Tapped="OnBackdropTapped" />
+
+        <Grid
+            x:Name="Panel"
+            Background="#F20D1117"
+            Opacity="0"
+            RequestedTheme="Dark">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="PanelOffset" Y="48" />
+            </Grid.RenderTransform>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Padding="24,20,16,8" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <TextBlock
+                        x:Name="TitleText"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Foreground="White" />
+                    <TextBlock
+                        x:Name="CountText"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#8CFFFFFF" />
+                </StackPanel>
+
+                <Button
+                    x:Name="CloseButton"
+                    Grid.Column="1"
+                    Width="32"
+                    Height="32"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="OnCloseClick"
+                    CornerRadius="16">
+                    <ui:MaterialIcon IconData="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" IconSize="20" />
+                </Button>
+            </Grid>
+
+            <ListView
+                x:Name="TrackList"
+                Grid.Row="1"
+                Padding="8,0,8,16"
+                IsItemClickEnabled="True"
+                ItemClick="OnTrackItemClick"
+                SelectionMode="None">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="MinHeight" Value="0" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="playlist:PlaylistRow">
+                        <Grid
+                            Padding="12,9"
+                            Background="{x:Bind RowBackground}"
+                            ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="#66FFFFFF"
+                                Text="{x:Bind IndexText}"
+                                Visibility="{x:Bind IndexVisibility}" />
+                            <ui:MaterialIcon
+                                Grid.Column="0"
+                                VerticalAlignment="Center"
+                                IconData="m12 3 .01 10.55c-.59-.34-1.27-.55-2-.55a4.001 4.001 0 1 0 0 8c2.22 0 3.99-1.79 3.99-4V7h4V3h-6zm-1.99 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+                                IconSize="16"
+                                Visibility="{x:Bind CurrentVisibility}" />
+
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock
+                                    FontSize="14"
+                                    Foreground="White"
+                                    MaxLines="1"
+                                    Text="{x:Bind Title}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    FontSize="12"
+                                    Foreground="#8CFFFFFF"
+                                    MaxLines="1"
+                                    Text="{x:Bind Artist}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <TextBlock
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="#66FFFFFF"
+                                Text="{x:Bind DurationText}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <TextBlock
+                x:Name="EmptyText"
+                Grid.Row="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="13"
+                Foreground="#8CFFFFFF"
+                Visibility="Collapsed" />
+        </Grid>
+    </Grid>
+</UserControl>

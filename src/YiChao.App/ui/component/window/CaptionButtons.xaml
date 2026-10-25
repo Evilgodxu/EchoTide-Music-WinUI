@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Ui.Component.Window.CaptionButtons"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+
+    <StackPanel Orientation="Horizontal">
+        <Button
+            x:Name="MinimizeButton"
+            AutomationProperties.Name="最小化"
+            Click="OnMinimizeClick"
+            Style="{StaticResource CaptionButtonStyle}">
+            <TextBlock
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="10"
+                Text="&#xE921;" />
+        </Button>
+        <Button
+            x:Name="MaximizeButton"
+            AutomationProperties.Name="最大化"
+            Click="OnMaximizeClick"
+            Style="{StaticResource CaptionButtonStyle}">
+            <TextBlock
+                x:Name="MaximizeGlyph"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="10"
+                Text="&#xE922;" />
+        </Button>
+        <Button
+            x:Name="CloseButton"
+            AutomationProperties.Name="关闭"
+            Click="OnCloseClick"
+            Style="{StaticResource CloseButtonStyle}">
+            <TextBlock
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="10"
+                Text="&#xE8BB;" />
+        </Button>
+    </StackPanel>
+</UserControl>

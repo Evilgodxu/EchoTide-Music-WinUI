@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Home.Component.Bar.HomeTopBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        悬浮标题栏：只剩居中的曲名与艺术家两行。
+        左右都留空——右上角是系统常驻的三个标题按钮，左上角按设计不放图标。
+    -->
+    <Grid Height="48">
+        <StackPanel
+            MaxWidth="420"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="2">
+            <TextBlock
+                x:Name="TitleText"
+                HorizontalAlignment="Center"
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="White"
+                TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                x:Name="ArtistText"
+                HorizontalAlignment="Center"
+                FontSize="12"
+                FontWeight="Medium"
+                Foreground="#B8FFFFFF"
+                TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </Grid>
+</UserControl>

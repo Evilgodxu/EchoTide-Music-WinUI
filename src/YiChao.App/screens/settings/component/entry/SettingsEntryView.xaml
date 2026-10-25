@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Settings.Component.Entry.SettingsEntryView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    HorizontalAlignment="Stretch">
+
+    <!-- 设置项：左侧图标、右侧标题与副标题两行。尺寸与配色照搬忆潮的 SettingsEntry -->
+    <Button
+        x:Name="Root"
+        Padding="16,12"
+        HorizontalAlignment="Stretch"
+        HorizontalContentAlignment="Stretch"
+        Background="Transparent"
+        BorderThickness="0"
+        Click="OnClick">
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ContentPresenter
+                Width="24"
+                Height="24"
+                VerticalAlignment="Center"
+                Content="{x:Bind Icon, Mode=OneWay}" />
+
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Spacing="2">
+                <TextBlock
+                    x:Name="TitleText"
+                    FontSize="16"
+                    Foreground="#F0F6FC"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    x:Name="SubtitleText"
+                    FontSize="14"
+                    Foreground="#8B949E"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Grid>
+    </Button>
+</UserControl>

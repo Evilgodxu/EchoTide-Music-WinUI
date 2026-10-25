@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Home.Component.Player.CoverBlend"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 封面铺满立方形容器；四边羽化已在位图里，边缘透出的即同源背景 -->
+    <Image x:Name="CoverImage" Stretch="UniformToFill" />
+</UserControl>

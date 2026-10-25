@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Settings.SettingsScreen"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:entry="using:YiChao.Screens.Settings.Component.Entry">
+
+    <!-- 设置页骨架：无标题栏，顶部让出窗口按钮条，内容直接铺满；右键与 Esc 返回上一级 -->
+    <Grid x:Name="RootGrid" RightTapped="OnRightTapped">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer
+            Grid.Row="1"
+            Padding="16,0,16,24"
+            HorizontalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Stretch">
+
+                <!-- 外观：与忆潮设置页一致，排在最上 -->
+                <TextBlock
+                    x:Name="AppearanceLabel"
+                    Margin="4,8,0,10"
+                    CharacterSpacing="120"
+                    FontSize="11"
+                    FontWeight="SemiBold" />
+                <Border x:Name="AppearanceCard" CornerRadius="20">
+                    <StackPanel>
+                        <entry:SettingsEntryView x:Name="ThemeEntry" Clicked="OnThemeClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="ThemeIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock
+                    x:Name="LanguageLabel"
+                    Margin="4,20,0,10"
+                    CharacterSpacing="120"
+                    FontSize="11"
+                    FontWeight="SemiBold" />
+                <Border x:Name="LanguageCard" CornerRadius="20">
+                    <StackPanel>
+                        <entry:SettingsEntryView x:Name="LanguageEntry" Clicked="OnLanguageClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="LanguageIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
+                    </StackPanel>
+                </Border>
+
+                <!-- 扫描管理 -->
+                <TextBlock
+                    x:Name="ScanLabel"
+                    Margin="4,20,0,10"
+                    CharacterSpacing="120"
+                    FontSize="11"
+                    FontWeight="SemiBold" />
+                <Border x:Name="ScanCard" CornerRadius="20">
+                    <StackPanel>
+                        <entry:SettingsEntryView x:Name="FolderEntry" Clicked="OnManageFoldersClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="FolderIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="m9.17 6 2 2H20v10H4V6h5.17M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
+
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

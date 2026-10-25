@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Ui.Component.MaterialIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        24 格坐标系原样保留，整体等比缩放到目标尺寸。
+        不能把 Path 直接 Stretch 进目标框：那样按几何的紧边界撑满，Material 图标在 24 格里
+        留的内边距会被吃掉，图形比设计值大一圈，非正方形的图标还会走形。
+    -->
+    <Viewbox x:Name="Scaler" Stretch="Uniform">
+        <Canvas Width="24" Height="24">
+            <Path
+                x:Name="Glyph"
+                Fill="White"
+                Stretch="None" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

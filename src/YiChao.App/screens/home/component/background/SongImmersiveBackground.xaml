@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="YiChao.Screens.Home.Component.Background.SongImmersiveBackground"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 底层三段渐变 + 恒定压暗层；封面流动帧属于后续增量，此处呈现的是忆潮关闭「背景流动」时的形态 -->
+    <Grid>
+        <Rectangle x:Name="BaseLayer" />
+        <Rectangle x:Name="DimLayer" Fill="#26000000" />
+    </Grid>
+</UserControl>
