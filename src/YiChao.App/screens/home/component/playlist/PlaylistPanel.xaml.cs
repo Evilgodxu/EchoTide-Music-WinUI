@@ -23,7 +23,8 @@ namespace YiChao.Screens.Home.Component.Playlist;
 /// 面板本身不改队列——切歌、插队、收藏、重扫都上报给上层，由视图模型决定。
 ///
 /// 搜索是提交式的：键入只更新输入框，回车才真正搜（标题/艺术家/专辑先命中，
-/// 都没命中的再读歌词找，读到的歌词由 <see cref="TrackLyrics"/> 缓存成 LRC，不会每次重解）。
+/// 都没命中的再按解析后的歌词行找，原文与译文都参与匹配——
+/// 与忆潮的播放列表搜索同口径，时间标签等格式噪声不会混进匹配文本）。
 /// </summary>
 public sealed partial class PlaylistPanel : UserControl
 {
@@ -351,7 +352,8 @@ public sealed partial class PlaylistPanel : UserControl
 
     /// <summary>
     /// 歌词命中：只在标题/艺术家/专辑都没命中时才查，按命中行数排序，片段取首个命中行。
-    /// 歌词原文由 <see cref="TrackLyrics"/> 带缓存提供（内嵌的第一次解完会落盘成 LRC）。
+    /// 以解析后的歌词行为匹配单位，原文与译文都算命中；行内时间标签已被剥离，
+    /// 译文块也不会作为原文的噪声参与匹配。歌词行由 <see cref="TrackLyrics"/> 带缓存提供。
     /// </summary>
     private static async Task<List<SearchResult>> SearchLyricsAsync(
         IReadOnlyList<PlaylistRow> rows,
@@ -366,27 +368,35 @@ public sealed partial class PlaylistPanel : UserControl
             await gate.WaitAsync(token);
             try
             {
-                var text = await Task.Run(() => TrackLyrics.ReadText(row.Track), token);
-                if (string.IsNullOrEmpty(text))
+                var lines = await Task.Run(() => TrackLyrics.Load(row.Track), token);
+                if (lines.Count == 0)
                 {
                     return;
                 }
 
                 var matches = 0;
                 string? snippet = null;
-                foreach (var line in text.Split('\n'))
+                foreach (var line in lines)
                 {
-                    var trimmed = line.TrimEnd('\r').Trim();
-                    if (trimmed.Length == 0 || !trimmed.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    var textMatched = line.Text.Contains(keyword, StringComparison.OrdinalIgnoreCase);
+                    var translationMatched = line.Translation?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true;
+                    if (!textMatched && !translationMatched)
                     {
                         continue;
                     }
 
                     matches++;
-                    snippet ??= trimmed;
+                    if (snippet is null)
+                    {
+                        var fragment = (textMatched ? line.Text : line.Translation ?? string.Empty).Trim();
+                        if (fragment.Length > 0)
+                        {
+                            snippet = fragment;
+                        }
+                    }
                 }
 
-                if (matches > 0)
+                if (matches > 0 && snippet is not null)
                 {
                     lock (hits)
                     {
