@@ -36,6 +36,11 @@ public sealed class PlayerService : IDisposable
     private readonly Random _random = new();
 
     private IReadOnlyList<MusicTrack> _playlist = Array.Empty<MusicTrack>();
+
+    /// <summary>插队队列：路径按插入顺序排列，下一次切歌先取队首。</summary>
+    private readonly List<string> _playNext = new();
+
+    private readonly object _queueGate = new();
     private int _currentIndex = -1;
     private bool _disposed;
 
@@ -83,6 +88,38 @@ public sealed class PlayerService : IDisposable
     {
         _playlist = playlist;
         _currentIndex = -1;
+        lock (_queueGate)
+        {
+            // 换库后旧的插队项可能已不在队列里，不留残项
+            _playNext.Clear();
+        }
+    }
+
+    /// <summary>是否已插到「下一首」。</summary>
+    public bool IsQueuedNext(string path)
+    {
+        lock (_queueGate)
+        {
+            return _playNext.Exists(item => string.Equals(item, path, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>插队/取消插队：插过的曲目在下一次切歌时先播，多首按插入顺序。</summary>
+    public void ToggleQueueNext(MusicTrack track)
+    {
+        lock (_queueGate)
+        {
+            var existing = _playNext.FindIndex(item =>
+                string.Equals(item, track.FilePath, StringComparison.OrdinalIgnoreCase));
+            if (existing >= 0)
+            {
+                _playNext.RemoveAt(existing);
+            }
+            else
+            {
+                _playNext.Add(track.FilePath);
+            }
+        }
     }
 
     /// <summary>
@@ -151,6 +188,13 @@ public sealed class PlayerService : IDisposable
             return;
         }
 
+        // 插队优先：队首曲目若已不在队列里就丢掉，继续看下一项
+        if (TryTakeQueuedNext(out var queued))
+        {
+            _ = PlayAsync(queued);
+            return;
+        }
+
         if (Mode == PlayMode.Shuffle && _playlist.Count > 1)
         {
             var shuffled = _currentIndex;
@@ -191,6 +235,30 @@ public sealed class PlayerService : IDisposable
     }
 
     public void Seek(TimeSpan position) => _player.PlaybackSession.Position = position;
+
+    /// <summary>取一个插队项并解析成当前队列下标；队列项已消失则丢弃并继续。</summary>
+    private bool TryTakeQueuedNext(out int index)
+    {
+        lock (_queueGate)
+        {
+            while (_playNext.Count > 0)
+            {
+                var path = _playNext[0];
+                _playNext.RemoveAt(0);
+                for (var i = 0; i < _playlist.Count; i++)
+                {
+                    if (string.Equals(_playlist[i].FilePath, path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        index = i;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        index = -1;
+        return false;
+    }
 
     public void SetMode(PlayMode mode) => Mode = mode;
 

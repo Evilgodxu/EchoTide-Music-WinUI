@@ -9,7 +9,7 @@ using YiChao.Data.Model;
 namespace YiChao.Screens.Home.Component.Playlist;
 
 /// <summary>
-/// 播放列表面板的一行：曲目信息与行内封面。
+/// 播放列表面板的一行：曲目信息、行内封面，以及两枚行尾动作（下一首播放、收藏）。
 ///
 /// 行内封面按行内实际显示尺寸请求（见 <see cref="ThumbnailRequestSize"/>），
 /// 构造时先查一次内存缓存——命中就首帧直接出图，不必先闪占位；
@@ -35,6 +35,12 @@ public sealed class PlaylistRow : INotifyPropertyChanged
 
     private bool _isPlaying;
 
+    private bool _isFavorite;
+
+    private bool _isQueued;
+
+    private string? _snippet;
+
     public PlaylistRow(MusicTrack track, int index)
     {
         Track = track;
@@ -51,7 +57,8 @@ public sealed class PlaylistRow : INotifyPropertyChanged
 
     public string Title => Track.Title;
 
-    public string Artist => Track.Artist;
+    /// <summary>副标题：默认艺术家；歌词命中时换成命中的那句歌词。</summary>
+    public string Subtitle => _snippet ?? Track.Artist;
 
     public string DurationText { get; }
 
@@ -59,11 +66,27 @@ public sealed class PlaylistRow : INotifyPropertyChanged
 
     public bool IsCurrent => _isCurrent;
 
+    public bool IsFavorite => _isFavorite;
+
     /// <summary>当前曲目在封面上盖一层暗底并叠播放标记；暂停时只剩底色，与忆潮的行内做法一致。</summary>
     public Visibility CurrentOverlayVisibility =>
         _isCurrent && _isPlaying ? Visibility.Visible : Visibility.Collapsed;
 
     public Brush RowBackground => _isCurrent ? CurrentBackground : PlainBackground;
+
+    public Visibility FavoriteOnVisibility => _isFavorite ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility FavoriteOffVisibility => _isFavorite ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility QueuedVisibility => _isQueued ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility NotQueuedVisibility => _isQueued ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>标题、艺术家、专辑任一命中即算匹配，忽略大小写。</summary>
+    public bool Matches(string query) =>
+        Track.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || Track.Artist.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || Track.Album.Contains(query, StringComparison.OrdinalIgnoreCase);
 
     public async Task EnsureCoverAsync()
     {
@@ -99,6 +122,42 @@ public sealed class PlaylistRow : INotifyPropertyChanged
         {
             Raise(nameof(CurrentOverlayVisibility));
         }
+    }
+
+    public void SetFavorite(bool favorite)
+    {
+        if (_isFavorite == favorite)
+        {
+            return;
+        }
+
+        _isFavorite = favorite;
+        Raise(nameof(FavoriteOnVisibility));
+        Raise(nameof(FavoriteOffVisibility));
+    }
+
+    public void SetQueued(bool queued)
+    {
+        if (_isQueued == queued)
+        {
+            return;
+        }
+
+        _isQueued = queued;
+        Raise(nameof(QueuedVisibility));
+        Raise(nameof(NotQueuedVisibility));
+    }
+
+    /// <summary>歌词命中片段；传 null 恢复显示艺术家。</summary>
+    public void SetSnippet(string? snippet)
+    {
+        if (string.Equals(_snippet, snippet, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _snippet = snippet;
+        Raise(nameof(Subtitle));
     }
 
     private void Raise(string property) =>

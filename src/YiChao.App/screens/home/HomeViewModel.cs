@@ -52,6 +52,9 @@ public sealed class HomeViewModel
     /// <summary>播放位置推进，50ms 一次，供歌词推进使用。</summary>
     public event EventHandler? Tick;
 
+    /// <summary>曲库被重扫并换了队列：面板据此重铺列表。</summary>
+    public event Action? LibraryRefreshed;
+
     public HomeUiState UiState { get; } = new();
 
     public MusicTrack? CurrentTrack => _player.Current;
@@ -291,19 +294,19 @@ public sealed class HomeViewModel
     public TimeSpan Duration => _player.Duration;
 
     /// <summary>当前曲目是否已收藏。</summary>
-    public bool IsCurrentFavorite =>
-        CurrentTrack is { } track
-        && _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
+    public bool IsCurrentFavorite => CurrentTrack is { } track && IsFavorite(track);
+
+    public bool IsFavorite(MusicTrack track) =>
+        _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>切换当前曲目的收藏并写盘，返回切换后的状态。</summary>
-    public bool ToggleCurrentFavorite()
-    {
-        if (CurrentTrack is not { } track)
-        {
-            return false;
-        }
+    public bool ToggleCurrentFavorite() =>
+        CurrentTrack is { } track && ToggleFavorite(track);
 
-        var favorited = _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
+    /// <summary>切换某一首的收藏并写盘，返回切换后的状态。</summary>
+    public bool ToggleFavorite(MusicTrack track)
+    {
+        var favorited = IsFavorite(track);
         if (favorited)
         {
             _settings.Favorites.RemoveAll(path =>
@@ -316,6 +319,56 @@ public sealed class HomeViewModel
 
         _settings.Save();
         return !favorited;
+    }
+
+    public bool IsQueuedNext(MusicTrack track) => _player.IsQueuedNext(track.FilePath);
+
+    /// <summary>插队/取消插队，返回插队后的状态。</summary>
+    public bool ToggleQueueNext(MusicTrack track)
+    {
+        _player.ToggleQueueNext(track);
+        return _player.IsQueuedNext(track.FilePath);
+    }
+
+    /// <summary>
+    /// 重扫曲库并重建队列：当前曲目按路径重定位，播放状态沿用。
+    /// 重扫期间面板上的刷新键由界面自行置灰，这里只负责扫描与换队列。
+    /// </summary>
+    public async Task RefreshAsync()
+    {
+        var folders = _settings.LibraryPaths.ToList();
+        if (folders.Count == 0)
+        {
+            return;
+        }
+
+        var tracks = await LocalLibraryScanner.ScanAsync(folders);
+        if (tracks.Count == 0)
+        {
+            // 盘符掉线、目录暂时读不到：不推翻已有曲库，也不留下空列表
+            return;
+        }
+
+        LibraryCache.Save(folders, tracks);
+        if (SameAs(_player.Playlist, tracks))
+        {
+            PlaybackStateChanged?.Invoke();
+            return;
+        }
+
+        var currentPath = _player.Current?.FilePath;
+        var wasPlaying = _player.IsPlaying;
+        _player.SetPlaylist(tracks);
+
+        var index = currentPath is null
+            ? -1
+            : tracks.FindIndex(track => string.Equals(track.FilePath, currentPath, StringComparison.OrdinalIgnoreCase));
+        _ = index >= 0
+            ? _player.PlayAsync(index, wasPlaying)
+            : _player.PlayAsync(0, autoPlay: false);
+
+        PlaybackStateChanged?.Invoke();
+        LibraryRefreshed?.Invoke();
     }
 
     private void OnCurrentIndexChanged(int index) => _ = PresentAsync(index);
@@ -347,9 +400,7 @@ public sealed class HomeViewModel
         }
 
         _presentingIndex = index;
-        var lyrics = track.LyricPath is null
-            ? Array.Empty<LyricLine>()
-            : LrcParser.ParseFile(track.LyricPath);
+        var lyrics = await Task.Run(() => TrackLyrics.Load(track));
         var spec = await Task.Run(() => AudioSpecReader.Read(track.FilePath, track.Duration));
         var cover = await CoverLoader.LoadAsync(track.FilePath);
 

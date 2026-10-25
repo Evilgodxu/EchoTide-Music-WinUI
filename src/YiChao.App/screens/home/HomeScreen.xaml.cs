@@ -97,6 +97,35 @@ public sealed partial class HomeScreen : UserControl
             Assembly.PlaylistView.Hide();
         };
 
+        // 面板里的行尾动作与工具栏：状态由视图模型改，改完回填给面板
+        Assembly.PlaylistView.FavoriteQuery = _viewModel.IsFavorite;
+        Assembly.PlaylistView.QueuedQuery = _viewModel.IsQueuedNext;
+        Assembly.PlaylistView.FavoriteToggled += (_, track) =>
+        {
+            var favorite = _viewModel.ToggleFavorite(track);
+            Assembly.PlaylistView.SetFavorite(track, favorite);
+            if (ReferenceEquals(track, _viewModel.CurrentTrack))
+            {
+                Assembly.ControlsView.SetFavorite(favorite);
+            }
+        };
+        Assembly.PlaylistView.PlayNextToggled += (_, track) =>
+            Assembly.PlaylistView.SetQueued(track, _viewModel.ToggleQueueNext(track));
+        Assembly.PlaylistView.RefreshRequested += async (_, _) =>
+        {
+            await _viewModel.RefreshAsync();
+            Assembly.PlaylistView.SetRefreshing(false);
+        };
+
+        // 重扫换了队列：面板开着就按新队列重铺一遍
+        _viewModel.LibraryRefreshed += () =>
+        {
+            if (Assembly.PlaylistView.IsOpen)
+            {
+                OpenPlaylist();
+            }
+        };
+
         // 标题按钮与设置入口都是自绘的，平时随标题栏浮层一起淡入淡出
         Assembly.TopChromeVisibilityChanged += visible =>
         {
@@ -317,7 +346,12 @@ public sealed partial class HomeScreen : UserControl
 
         if (Assembly.PlaylistView.IsOpen)
         {
-            Assembly.PlaylistView.Hide();
+            // 有搜索词时 Esc 先清词，再按一次才收起面板
+            if (!Assembly.PlaylistView.ClearSearchIfAny())
+            {
+                Assembly.PlaylistView.Hide();
+            }
+
             return true;
         }
 

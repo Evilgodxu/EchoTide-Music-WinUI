@@ -6,6 +6,25 @@
     xmlns:playlist="using:YiChao.Screens.Home.Component.Playlist"
     xmlns:ui="using:YiChao.Ui.Component">
 
+    <UserControl.Resources>
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style
+            x:Key="RowActionButtonStyle"
+            BasedOn="{StaticResource ToolbarButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+    </UserControl.Resources>
+
     <!--
         播放列表面板：横屏下占据整个窗口自下方升起，与忆潮横屏的列表页同形。
         收起走右键（面板内任意位置）或 Esc，不设返回按钮。
@@ -32,105 +51,294 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <StackPanel
-                Margin="24,20,24,8"
-                Orientation="Horizontal"
-                Spacing="10">
-                <TextBlock
-                    x:Name="TitleText"
-                    FontSize="16"
-                    FontWeight="SemiBold"
-                    Foreground="White" />
-                <TextBlock
-                    x:Name="CountText"
-                    VerticalAlignment="Center"
-                    FontSize="12"
-                    Foreground="#8CFFFFFF" />
-            </StackPanel>
+            <!-- 头部：曲数在左，刷新、排序、方向在右 -->
+            <Grid Padding="24,20,16,8" ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <ListView
-                x:Name="TrackList"
-                Grid.Row="1"
-                Padding="8,0,8,16"
-                IsItemClickEnabled="True"
-                ItemClick="OnTrackItemClick"
-                SelectionMode="None">
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="MinHeight" Value="0" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="playlist:PlaylistRow">
-                        <Grid
-                            Padding="10,7"
-                            Background="{x:Bind RowBackground, Mode=OneWay}"
-                            ColumnSpacing="10">
+                <StackPanel
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <TextBlock
+                        x:Name="TitleText"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Foreground="White" />
+                    <TextBlock
+                        x:Name="CountText"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="#8CFFFFFF" />
+                </StackPanel>
+
+                <Button
+                    x:Name="DirectionButton"
+                    Grid.Column="1"
+                    Click="OnDirectionClick"
+                    Style="{StaticResource ToolbarButtonStyle}">
+                    <ui:MaterialIcon
+                        x:Name="DirectionIcon"
+                        IconData="M7.41 15.41 L12 10.83 L16.59 15.41 L18 14 L12 8 L6 14 Z"
+                        IconFill="#8CFFFFFF"
+                        IconSize="18" />
+                </Button>
+
+                <Button
+                    x:Name="SortButton"
+                    Grid.Column="2"
+                    Style="{StaticResource ToolbarButtonStyle}">
+                    <ui:MaterialIcon
+                        IconData="M3 18 H9 V16 H3 Z M3 6 V8 H21 V6 Z M3 13 H15 V11 H3 Z"
+                        IconFill="#8CFFFFFF"
+                        IconSize="18" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <ToggleMenuFlyoutItem x:Name="SortDefaultItem" Click="OnSortFieldClick" Tag="Default" />
+                            <ToggleMenuFlyoutItem x:Name="SortFavoriteItem" Click="OnSortFieldClick" Tag="Favorite" />
+                            <ToggleMenuFlyoutItem x:Name="SortModifiedItem" Click="OnSortFieldClick" Tag="ModifiedTime" />
+                            <ToggleMenuFlyoutItem x:Name="SortTitleItem" Click="OnSortFieldClick" Tag="Title" />
+                            <ToggleMenuFlyoutItem x:Name="SortArtistItem" Click="OnSortFieldClick" Tag="Artist" />
+                            <ToggleMenuFlyoutItem x:Name="SortAlbumItem" Click="OnSortFieldClick" Tag="Album" />
+                            <ToggleMenuFlyoutItem x:Name="SortDurationItem" Click="OnSortFieldClick" Tag="Duration" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+
+                <Button
+                    x:Name="RefreshButton"
+                    Grid.Column="3"
+                    Click="OnRefreshClick"
+                    Style="{StaticResource ToolbarButtonStyle}">
+                    <ui:MaterialIcon
+                        IconData="M17.65 6.35 A7.958 7.958 0 0 0 12 4 C7.58 4 4.01 7.58 4.01 12 S7.58 20 12 20 C15.73 20 18.84 17.45 19.73 14 H17.65 A5.99 5.99 0 0 1 12 18 C8.69 18 6 15.31 6 12 S8.69 6 12 6 C13.66 6 15.14 6.69 16.22 7.78 L13 11 H20 V4 L17.65 6.35 Z"
+                        IconFill="#8CFFFFFF"
+                        IconSize="18" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <ListView
+                    x:Name="TrackList"
+                    Padding="8,0,8,72"
+                    IsItemClickEnabled="True"
+                    ItemClick="OnTrackItemClick"
+                    SelectionMode="None">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="MinHeight" Value="0" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="playlist:PlaylistRow">
+                            <Grid
+                                Padding="10,7"
+                                Background="{x:Bind RowBackground, Mode=OneWay}"
+                                ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 行内封面：取不到时留一块浅底占位；当前曲目盖暗底并叠播放标记 -->
+                                <Border
+                                    Width="36"
+                                    Height="36"
+                                    Background="#1FFFFFFF"
+                                    CornerRadius="6">
+                                    <Grid>
+                                        <Image
+                                            Source="{x:Bind Cover, Mode=OneWay}"
+                                            Stretch="UniformToFill" />
+                                        <Grid Background="#80000000" Visibility="{x:Bind CurrentOverlayVisibility, Mode=OneWay}">
+                                            <ui:MaterialIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IconData="M10 20 H14 V4 H10 Z M4 20 H8 V12 H4 Z M16 9 V20 H20 V9 Z"
+                                                IconSize="16" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="2">
+                                    <TextBlock
+                                        FontSize="14"
+                                        Foreground="White"
+                                        MaxLines="1"
+                                        Text="{x:Bind Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        FontSize="12"
+                                        Foreground="#8CFFFFFF"
+                                        MaxLines="1"
+                                        Text="{x:Bind Subtitle, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+
+                                <!-- 下一首播放：插队后换成减号 -->
+                                <Button
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Click="OnPlayNextClick"
+                                    Style="{StaticResource RowActionButtonStyle}">
+                                    <Grid>
+                                        <ui:MaterialIcon
+                                            IconData="M19 13 H13 V19 H11 V13 H5 V11 H11 V5 H13 V11 H19 Z"
+                                            IconFill="#8CFFFFFF"
+                                            IconSize="18"
+                                            Visibility="{x:Bind NotQueuedVisibility, Mode=OneWay}" />
+                                        <ui:MaterialIcon
+                                            IconData="M19 13 H5 V11 H19 Z"
+                                            IconFill="#FF7CC4FF"
+                                            IconSize="18"
+                                            Visibility="{x:Bind QueuedVisibility, Mode=OneWay}" />
+                                    </Grid>
+                                </Button>
+
+                                <!-- 收藏：已收藏为实心红 -->
+                                <Button
+                                    Grid.Column="3"
+                                    VerticalAlignment="Center"
+                                    Click="OnFavoriteClick"
+                                    Style="{StaticResource RowActionButtonStyle}">
+                                    <Grid>
+                                        <ui:MaterialIcon
+                                            IconData="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"
+                                            IconFill="#8CFFFFFF"
+                                            IconSize="18"
+                                            Visibility="{x:Bind FavoriteOffVisibility, Mode=OneWay}" />
+                                        <ui:MaterialIcon
+                                            IconData="m12 21.35-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                            IconFill="#FFFF6B6B"
+                                            IconSize="18"
+                                            Visibility="{x:Bind FavoriteOnVisibility, Mode=OneWay}" />
+                                    </Grid>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <TextBlock
+                    x:Name="EmptyText"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    Foreground="#8CFFFFFF"
+                    Visibility="Collapsed" />
+
+                <!--
+                    底部浮层：上方是置顶与定位播放两枚操作，下方是搜索框。
+                    搜索框与忆潮的列表搜索框同形（44 高、22 圆角、1px 描边、18 的放大镜、13 的字号）。
+                    输入框自身放进深底面板，故把 TextBox 的常态/悬停/聚焦底色与描边一律抹平，只留外层胶囊。
+                -->
+                <StackPanel
+                    Margin="16,0,16,10"
+                    VerticalAlignment="Bottom"
+                    Spacing="6">
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="6">
+                        <Button
+                            x:Name="TopButton"
+                            Click="OnScrollToTopClick"
+                            Style="{StaticResource ToolbarButtonStyle}">
+                            <ui:MaterialIcon
+                                IconData="M8 11 H11 V21 H13 V11 H16 L12 7 Z M4 3 V5 H20 V3 Z"
+                                IconFill="#8CFFFFFF"
+                                IconSize="18" />
+                        </Button>
+                        <Button
+                            x:Name="LocateButton"
+                            Click="OnLocatePlayingClick"
+                            Style="{StaticResource ToolbarButtonStyle}">
+                            <ui:MaterialIcon
+                                IconData="M11 3 H13 V6 H11 Z M11 18 H13 V21 H11 Z M3 11 H6 V13 H3 Z M18 11 H21 V13 H18 Z M12 8 A4 4 0 1 0 12 16 A4 4 0 1 0 12 8 Z M12 9.5 A2.5 2.5 0 1 1 12 14.5 A2.5 2.5 0 1 1 12 9.5 Z"
+                                IconFill="#8CFFFFFF"
+                                IconSize="18" />
+                        </Button>
+                    </StackPanel>
+
+                    <Border
+                        x:Name="SearchBarHost"
+                        Height="44"
+                        Background="#14FFFFFF"
+                        BorderBrush="#38FFFFFF"
+                        BorderThickness="1"
+                        CornerRadius="22">
+                        <Border.Resources>
+                            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#8CFFFFFF" />
+                            <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#8CFFFFFF" />
+                            <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#8CFFFFFF" />
+                            <SolidColorBrush x:Key="TextControlForeground" Color="White" />
+                            <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="White" />
+                            <SolidColorBrush x:Key="TextControlForegroundFocused" Color="White" />
+                        </Border.Resources>
+
+                        <Grid Padding="12,0" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- 行内封面：取不到时留一块浅底占位；当前曲目盖暗底并叠播放标记 -->
-                            <Border
-                                Width="36"
-                                Height="36"
-                                Background="#1FFFFFFF"
-                                CornerRadius="6">
-                                <Grid>
-                                    <Image
-                                        Source="{x:Bind Cover, Mode=OneWay}"
-                                        Stretch="UniformToFill" />
-                                    <Grid Background="#80000000" Visibility="{x:Bind CurrentOverlayVisibility, Mode=OneWay}">
-                                        <ui:MaterialIcon
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            IconData="M10 20 H14 V4 H10 Z M4 20 H8 V12 H4 Z M16 9 V20 H20 V9 Z"
-                                            IconSize="16" />
-                                    </Grid>
-                                </Grid>
-                            </Border>
+                            <ui:MaterialIcon
+                                VerticalAlignment="Center"
+                                IconData="M10 3 A7 7 0 1 0 10 17 A7 7 0 1 0 10 3 Z M10 5.2 A4.8 4.8 0 1 1 10 14.8 A4.8 4.8 0 1 1 10 5.2 Z M15.3 14.2 L21.4 20.3 L20.3 21.4 L14.2 15.3 Z"
+                                IconFill="#8CFFFFFF"
+                                IconSize="18" />
 
-                            <StackPanel
+                            <TextBox
+                                x:Name="SearchBox"
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Spacing="2">
-                                <TextBlock
-                                    FontSize="14"
-                                    Foreground="White"
-                                    MaxLines="1"
-                                    Text="{x:Bind Title}"
-                                    TextTrimming="CharacterEllipsis" />
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#8CFFFFFF"
-                                    MaxLines="1"
-                                    Text="{x:Bind Artist}"
-                                    TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
+                                Background="Transparent"
+                                BorderThickness="0"
+                                FontSize="13"
+                                KeyDown="OnSearchBoxKeyDown"
+                                MinHeight="0"
+                                Padding="0"
+                                TextChanged="OnSearchTextChanged" />
 
-                            <TextBlock
+                            <Button
+                                x:Name="ClearSearchButton"
                                 Grid.Column="2"
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="#66FFFFFF"
-                                Text="{x:Bind DurationText}" />
+                                Width="30"
+                                Height="30"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Click="OnClearSearchClick"
+                                CornerRadius="15"
+                                Visibility="Collapsed">
+                                <ui:MaterialIcon
+                                    IconData="M19 6.41 L17.59 5 L12 10.59 L6.41 5 L5 6.41 L10.59 12 L5 17.59 L6.41 19 L12 13.41 L17.59 19 L19 17.59 L13.41 12 Z"
+                                    IconFill="#8CFFFFFF"
+                                    IconSize="16" />
+                            </Button>
                         </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-
-            <TextBlock
-                x:Name="EmptyText"
-                Grid.Row="1"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                FontSize="13"
-                Foreground="#8CFFFFFF"
-                Visibility="Collapsed" />
+                    </Border>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

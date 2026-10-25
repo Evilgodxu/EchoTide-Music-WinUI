@@ -106,7 +106,26 @@ public static class Strings
     // 播放列表面板
     public static string PlaylistCount(int tracks) => T($"{tracks} 首", $"{tracks} tracks");
     public static string PlaylistEmpty => T("列表为空", "Nothing queued");
+    public static string PlaylistNoMatch => T("没有匹配的曲目", "No matches");
+    public static string PlaylistSearchPlaceholder => T("搜索播放列表", "Search queue");
     public static string ClosePlaylist => T("关闭播放列表", "Close queue");
+
+    // 播放列表工具栏
+    public static string RefreshLibrary => T("刷新", "Refresh");
+    public static string SortFieldTitle => T("排序", "Sort");
+    public static string SortDescending => T("逆序", "Descending");
+    public static string SortAscending => T("正序", "Ascending");
+    public static string SortDefault => T("默认", "Default");
+    public static string SortFavorite => T("收藏", "Favorite");
+    public static string SortModified => T("新旧", "Modified");
+    public static string SortTitle => T("标题", "Title");
+    public static string SortArtist => T("歌手", "Artist");
+    public static string SortAlbum => T("专辑", "Album");
+    public static string SortDuration => T("时长", "Duration");
+    public static string ScrollToTop => T("滚动至顶", "Scroll to top");
+    public static string LocatePlaying => T("定位播放", "Locate playing");
+    public static string PlayNext => T("下一首播放", "Play next");
+    public static string CancelPlayNext => T("取消下一首播放", "Cancel play next");
 
     // 控制栏两端
     public static string Favorite => T("收藏", "Favorite");
