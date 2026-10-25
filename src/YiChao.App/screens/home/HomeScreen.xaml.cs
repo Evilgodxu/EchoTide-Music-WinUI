@@ -212,11 +212,11 @@ public sealed partial class HomeScreen : UserControl
         Assembly.ControlsView.SetMode(_viewModel.Mode);
         Assembly.ControlsView.SetTransportEnabled(_viewModel.HasLibrary);
 
-        // 自动续播也会停到别的曲目：面板开着就把行内标记挪过去，列表本身不动
-        if (Assembly.PlaylistView.IsOpen && _viewModel.CurrentIndex != _playlistCurrent)
+        // 自动续播与暂停/播放都会走到这里：面板开着就同步行内标记，列表本身不重铺
+        if (Assembly.PlaylistView.IsOpen)
         {
             _playlistCurrent = _viewModel.CurrentIndex;
-            Assembly.PlaylistView.UpdateCurrent(_viewModel.Tracks, _playlistCurrent);
+            Assembly.PlaylistView.UpdateState(_playlistCurrent, _viewModel.IsPlaying);
         }
     }
 
@@ -329,7 +329,7 @@ public sealed partial class HomeScreen : UserControl
     {
         Assembly.DismissChrome();
         _playlistCurrent = _viewModel.CurrentIndex;
-        Assembly.PlaylistView.Show(_viewModel.Tracks, _playlistCurrent);
+        Assembly.PlaylistView.Show(_viewModel.Tracks, _playlistCurrent, _viewModel.IsPlaying);
     }
 
     /// <summary>语言切换后重取本页与组件里的文案。</summary>

@@ -8,6 +8,7 @@
 
     <!--
         播放列表面板：横屏下占据整个窗口自下方升起，与忆潮横屏的列表页同形。
+        收起走右键（面板内任意位置）或 Esc，不设返回按钮。
         面板底色固定为深色——这一片压在封面衍生背景之上，与主题无关。
     -->
     <Grid x:Name="RootLayer" Visibility="Collapsed">
@@ -31,41 +32,21 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid Padding="24,20,16,8" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel
+            <StackPanel
+                Margin="24,20,24,8"
+                Orientation="Horizontal"
+                Spacing="10">
+                <TextBlock
+                    x:Name="TitleText"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Foreground="White" />
+                <TextBlock
+                    x:Name="CountText"
                     VerticalAlignment="Center"
-                    Orientation="Horizontal"
-                    Spacing="10">
-                    <TextBlock
-                        x:Name="TitleText"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Foreground="White" />
-                    <TextBlock
-                        x:Name="CountText"
-                        VerticalAlignment="Center"
-                        FontSize="12"
-                        Foreground="#8CFFFFFF" />
-                </StackPanel>
-
-                <Button
-                    x:Name="CloseButton"
-                    Grid.Column="1"
-                    Width="32"
-                    Height="32"
-                    Padding="0"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="OnCloseClick"
-                    CornerRadius="16">
-                    <ui:MaterialIcon IconData="M19 6.41 L17.59 5 L12 10.59 L6.41 5 L5 6.41 L10.59 12 L5 17.59 L6.41 19 L12 13.41 L17.59 19 L19 17.59 L13.41 12 Z" IconSize="20" />
-                </Button>
-            </Grid>
+                    FontSize="12"
+                    Foreground="#8CFFFFFF" />
+            </StackPanel>
 
             <ListView
                 x:Name="TrackList"
@@ -84,29 +65,39 @@
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="playlist:PlaylistRow">
                         <Grid
-                            Padding="12,9"
-                            Background="{x:Bind RowBackground}"
-                            ColumnSpacing="12">
+                            Padding="10,7"
+                            Background="{x:Bind RowBackground, Mode=OneWay}"
+                            ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="#66FFFFFF"
-                                Text="{x:Bind IndexText}"
-                                Visibility="{x:Bind IndexVisibility}" />
-                            <ui:MaterialIcon
-                                Grid.Column="0"
-                                VerticalAlignment="Center"
-                                IconData="M10 20 H14 V4 H10 Z M4 20 H8 V12 H4 Z M16 9 V20 H20 V9 Z"
-                                IconSize="16"
-                                Visibility="{x:Bind CurrentVisibility}" />
+                            <!-- 行内封面：取不到时留一块浅底占位；当前曲目盖暗底并叠播放标记 -->
+                            <Border
+                                Width="36"
+                                Height="36"
+                                Background="#1FFFFFFF"
+                                CornerRadius="6">
+                                <Grid>
+                                    <Image
+                                        Source="{x:Bind Cover, Mode=OneWay}"
+                                        Stretch="UniformToFill" />
+                                    <Grid Background="#80000000" Visibility="{x:Bind CurrentOverlayVisibility, Mode=OneWay}">
+                                        <ui:MaterialIcon
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IconData="M10 20 H14 V4 H10 Z M4 20 H8 V12 H4 Z M16 9 V20 H20 V9 Z"
+                                            IconSize="16" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
 
-                            <StackPanel Grid.Column="1" Spacing="2">
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
                                 <TextBlock
                                     FontSize="14"
                                     Foreground="White"
