@@ -6,27 +6,47 @@ using System.Text.RegularExpressions;
 
 namespace YiChao.Data.Lyrics;
 
-/// <summary>一行歌词：时间戳（毫秒）与文本。</summary>
-public readonly record struct LyricLine(long TimeMs, string Text);
+/// <summary>逐字歌词中的字：绝对毫秒起点、时长、文本。</summary>
+public readonly record struct LyricWord(long StartMs, long DurationMs, string Text);
+
+/// <summary>一行歌词：时间戳（毫秒）、文本、逐字时间轴、译文。</summary>
+public readonly record struct LyricLine(
+    long TimeMs,
+    string Text,
+    IReadOnlyList<LyricWord> Words,
+    string? Translation)
+{
+    public LyricLine(long timeMs, string text)
+        : this(timeMs, text, Array.Empty<LyricWord>(), null)
+    {
+    }
+}
 
 /// <summary>
-/// LRC 解析：时间为正序，一首多行时间戳的行按每个时间戳各成一行。
+/// LRC 解析：与忆潮 Android 版的 parseWordTimedLrcText 同口径。
+///
+/// 支持普通 LRC（逐行）、增强 LRC（行内逐字 <mm:ss.xxx> 标签）与 [tr][/tr] 译文块。
+/// 时间戳小时制 [hh:mm:ss.xxx] 也覆盖，长音频/现场录音不会截断。
+/// 同行叠写的多个时间戳（副歌复用）按每个时间戳各成一行：安卓版只取首个时间戳，
+/// 会把后续标签留在文本里，Windows 保留展开行为，避免歌词语句被时间标签污染。
+/// 解析结果最终按时间正序排序。
 ///
 /// 编码先按 BOM 判定，无 BOM 时回到 UTF-8 严格解码，失败再落到 GB18030——
 /// 中文歌词文件这两个来源占绝大多数，猜错的代价是整篇乱码，故用严格解码探测而不是替换字符兜底。
 /// </summary>
 public static partial class LrcParser
 {
-    [GeneratedRegex(@"\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]")]
-    private static partial Regex TimeTagRegex();
+    /// <summary>行级时间戳：支持 [mm:ss]、[mm:ss.xxx] 与小时制 [hh:mm:ss.xxx]。</summary>
+    [GeneratedRegex(@"\[(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?\]")]
+    private static partial Regex TimeTagPattern();
 
-    /// <summary>增强 LRC 的逐字时间戳（&lt;mm:ss.xxx&gt;）：只用于卡拉 OK 逐字高亮，行面上要抹掉。</summary>
-    [GeneratedRegex(@"<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>")]
-    private static partial Regex WordTimeTagRegex();
+    /// <summary>逐字时间戳：&lt;mm:ss.xxx&gt; 或小时制 &lt;hh:mm:ss.xxx&gt; 后紧跟字文本。</summary>
+    [GeneratedRegex(@"<(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?>([^<]*)")]
+    private static partial Regex WordTagPattern();
 
-    /// <summary>翻译段：行内以 [tr]…[/tr] 包裹。面板只排一行原文，故整段丢弃而不合并。</summary>
-    [GeneratedRegex(@"\[tr\][\s\S]*?\[/tr\]", RegexOptions.IgnoreCase)]
-    private static partial Regex TranslationRegex();
+    /// <summary>翻译段：行内以 [tr]…[/tr] 包裹。整段抽取为译文。</summary>
+    [GeneratedRegex(@"\[tr](.*?)\[/tr]", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex TranslationPattern();
 
     public static IReadOnlyList<LyricLine> ParseFile(string path)
     {
@@ -53,43 +73,100 @@ public static partial class LrcParser
 
     public static IReadOnlyList<LyricLine> Parse(string content)
     {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return Array.Empty<LyricLine>();
+        }
+
         var lines = new List<LyricLine>();
         foreach (var raw in content.Split('\n'))
         {
             var line = raw.TrimEnd('\r');
-            var matches = TimeTagRegex().Matches(line);
-            if (matches.Count == 0)
+            var timeMatches = TimeTagPattern().Matches(line);
+            if (timeMatches.Count == 0)
             {
-                // 元信息标签（[ti:]、[ar:]）与空行不产生歌词行
                 continue;
             }
 
-            var text = CleanText(line[(matches[^1].Index + matches[^1].Length)..]);
-            foreach (Match match in matches)
+            // 字标签与译文都写在最后一个时间戳之后
+            var lastTimeTag = timeMatches[^1];
+            var contentBody = line[(lastTimeTag.Index + lastTimeTag.Length)..];
+
+            // 先提取译文
+            string? translation = null;
+            var transMatch = TranslationPattern().Match(contentBody);
+            if (transMatch.Success)
             {
-                var minutes = int.Parse(match.Groups[1].Value);
-                var seconds = int.Parse(match.Groups[2].Value);
-                var fractionMs = 0;
-                if (match.Groups[3].Success)
+                translation = transMatch.Groups[1].Value.Trim();
+                if (translation.Length == 0)
                 {
-                    var fraction = match.Groups[3].Value;
-                    // 一位为十分之一秒、两位为百分之一秒、三位为毫秒
-                    fractionMs = int.Parse(fraction) * (fraction.Length switch { 1 => 100, 2 => 10, _ => 1 });
+                    translation = null;
+                }
+            }
+
+            // 剥离译文块后再切逐字标签
+            var cleanContent = TranslationPattern().Replace(contentBody, string.Empty).Trim();
+
+            // 提取所有字标签
+            var wordMatches = WordTagPattern().Matches(cleanContent);
+            List<LyricWord> words = new();
+            foreach (Match tagMatch in wordMatches)
+            {
+                var wordText = tagMatch.Groups[5].Value;
+                if (wordText.Length == 0)
+                {
+                    continue;
                 }
 
-                lines.Add(new LyricLine(((minutes * 60L) + seconds) * 1000L + fractionMs, text));
+                words.Add(new LyricWord(
+                    StartMs: ColonTimestamp(tagMatch.Groups[1].Value, tagMatch.Groups[2].Value, tagMatch.Groups[3].Value, tagMatch.Groups[4].Value),
+                    DurationMs: 0,
+                    Text: wordText
+                ));
+            }
+
+            // 拼接整行文本
+            var fullText = words.Count > 0
+                ? string.Join(string.Empty, words.ConvertAll(w => w.Text))
+                : cleanContent;
+            fullText = fullText.Trim();
+
+            if (fullText.Length == 0)
+            {
+                continue;
+            }
+
+            var lineWords = words.AsReadOnly();
+            foreach (Match timeMatch in timeMatches)
+            {
+                lines.Add(new LyricLine(
+                    TimeMs: ColonTimestamp(timeMatch.Groups[1].Value, timeMatch.Groups[2].Value, timeMatch.Groups[3].Value, timeMatch.Groups[4].Value),
+                    Text: fullText,
+                    Words: lineWords,
+                    Translation: translation
+                ));
             }
         }
 
-        lines.Sort((a, b) => a.TimeMs.CompareTo(b.TimeMs));
-        return lines;
+        // 与安卓版一致用稳定排序：同一时间戳的行保持文件内顺序
+        return lines.OrderBy(line => line.TimeMs).ToList();
     }
 
-    private static string CleanText(string text)
+    /// <summary>形如 hh:mm:ss.xxx / mm:ss.xxx 的时间戳归一为绝对毫秒；小时段可省略。</summary>
+    private static long ColonTimestamp(string hoursStr, string minutesStr, string secondsStr, string fractionStr)
     {
-        var cleaned = TranslationRegex().Replace(text, string.Empty);
-        cleaned = WordTimeTagRegex().Replace(cleaned, string.Empty);
-        return cleaned.Trim();
+        var hours = long.TryParse(hoursStr, out var h) ? h : 0L;
+        var minutes = long.Parse(minutesStr);
+        var seconds = long.Parse(secondsStr);
+
+        // 小数位统一 padEnd(3, '0') 后 take(3)，保证 1 位 → 100ms、2 位 → 10ms、3 位直接原值
+        var fraction = fractionStr.PadRight(3, '0').AsSpan(0, 3);
+        var fractionMs = long.Parse(fraction);
+
+        return hours * 3600_000L
+            + minutes * 60_000L
+            + seconds * 1_000L
+            + fractionMs;
     }
 
     private static string ReadText(string path)
