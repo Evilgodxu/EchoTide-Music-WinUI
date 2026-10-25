@@ -63,7 +63,7 @@
                     BorderThickness="0"
                     Click="OnCloseClick"
                     CornerRadius="16">
-                    <ui:MaterialIcon IconData="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" IconSize="20" />
+                    <ui:MaterialIcon IconData="M19 6.41 L17.59 5 L12 10.59 L6.41 5 L5 6.41 L10.59 12 L5 17.59 L6.41 19 L12 13.41 L17.59 19 L19 17.59 L13.41 12 Z" IconSize="20" />
                 </Button>
             </Grid>
 
@@ -102,7 +102,7 @@
                             <ui:MaterialIcon
                                 Grid.Column="0"
                                 VerticalAlignment="Center"
-                                IconData="m12 3 .01 10.55c-.59-.34-1.27-.55-2-.55a4.001 4.001 0 1 0 0 8c2.22 0 3.99-1.79 3.99-4V7h4V3h-6zm-1.99 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+                                IconData="M10 20 H14 V4 H10 Z M4 20 H8 V12 H4 Z M16 9 V20 H20 V9 Z"
                                 IconSize="16"
                                 Visibility="{x:Bind CurrentVisibility}" />
 

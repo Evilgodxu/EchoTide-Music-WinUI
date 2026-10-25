@@ -30,6 +30,10 @@ public sealed class AppSettings
     [JsonPropertyName("language")]
     public AppLanguage Language { get; set; } = AppLanguage.System;
 
+    /// <summary>收藏：按曲目全路径记，与曲库标识同口径。</summary>
+    [JsonPropertyName("favorites")]
+    public List<string> Favorites { get; set; } = new();
+
     public static AppSettings Load()
     {
         try
@@ -40,6 +44,7 @@ public sealed class AppSettings
                 if (settings is not null)
                 {
                     settings.LibraryPaths ??= new List<string>();
+                    settings.Favorites ??= new List<string>();
                     return settings;
                 }
             }

@@ -107,4 +107,9 @@ public static class Strings
     public static string PlaylistCount(int tracks) => T($"{tracks} 首", $"{tracks} tracks");
     public static string PlaylistEmpty => T("列表为空", "Nothing queued");
     public static string ClosePlaylist => T("关闭播放列表", "Close queue");
+
+    // 控制栏两端
+    public static string Favorite => T("收藏", "Favorite");
+    public static string Unfavorite => T("取消收藏", "Remove from favorites");
+    public static string LyricsManage => T("歌词管理", "Lyrics");
 }

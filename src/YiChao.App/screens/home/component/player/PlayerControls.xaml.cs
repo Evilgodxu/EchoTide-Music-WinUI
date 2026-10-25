@@ -27,6 +27,8 @@ public sealed partial class PlayerControls : UserControl
 
     private bool _playing;
 
+    private bool _favorite;
+
     public PlayerControls()
     {
         InitializeComponent();
@@ -49,6 +51,8 @@ public sealed partial class PlayerControls : UserControl
 
     public event EventHandler? PlaylistRequested;
 
+    public event EventHandler? FavoriteRequested;
+
     public bool IsModeSelectorExpanded => ModeOptions.Visibility == Visibility.Visible;
 
     /// <summary>语言切换后重取各按钮的提示文案与当前播放状态文案。</summary>
@@ -61,8 +65,20 @@ public sealed partial class PlayerControls : UserControl
         ToolTipService.SetToolTip(RepeatAllOption, Strings.PlayModeRepeatAll);
         ToolTipService.SetToolTip(RepeatOneOption, Strings.PlayModeRepeatOne);
         ToolTipService.SetToolTip(ShuffleOption, Strings.PlayModeShuffle);
+        ToolTipService.SetToolTip(LyricsButton, Strings.LyricsManage);
         SetPlaying(_playing);
+        SetFavorite(_favorite);
     }
+
+    /// <summary>收藏态：实心与空心两个图形互换，提示文案随之改口。</summary>
+    public void SetFavorite(bool favorite)
+    {
+        _favorite = favorite;
+        FavoriteIcon.Visibility = favorite ? Visibility.Visible : Visibility.Collapsed;
+        FavoriteBorderIcon.Visibility = favorite ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(FavoriteButton, favorite ? Strings.Unfavorite : Strings.Favorite);
+    }
+
 
     public void SetPlaying(bool playing)
     {
@@ -83,11 +99,11 @@ public sealed partial class PlayerControls : UserControl
         ShuffleOptionIcon.IconFill = mode == PlayMode.Shuffle ? SelectedTint : OptionTint;
     }
 
-    /// <summary>曲库为空时三个传输键置灰：降到 30% 白，与忆潮的禁用态一致；播放列表键始终可用。</summary>
+    /// <summary>曲库为空时这几个键置灰：降到 30% 白，与忆潮的禁用态一致。</summary>
     public void SetTransportEnabled(bool enabled)
     {
         var alpha = enabled ? 1.0 : 0.3;
-        foreach (var button in new[] { PreviousButton, PlayPauseButton, NextButton })
+        foreach (var button in new[] { FavoriteButton, PreviousButton, PlayPauseButton, NextButton, LyricsButton })
         {
             button.IsEnabled = enabled;
             button.Opacity = alpha;
@@ -177,4 +193,6 @@ public sealed partial class PlayerControls : UserControl
     private void OnNextClick(object sender, RoutedEventArgs e) => NextRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPlaylistClick(object sender, RoutedEventArgs e) => PlaylistRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnFavoriteClick(object sender, RoutedEventArgs e) => FavoriteRequested?.Invoke(this, EventArgs.Empty);
 }

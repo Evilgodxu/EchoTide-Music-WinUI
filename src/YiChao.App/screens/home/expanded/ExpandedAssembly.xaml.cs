@@ -2,6 +2,7 @@ using System;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Media3D;
@@ -52,12 +53,30 @@ public sealed partial class ExpandedAssembly : UserControl
 
     private const double ControlsHiddenOffset = 48;
 
+    /// <summary>双击判定的时间窗：两次按下相隔在此之内算一次双击。</summary>
+    private const long DoubleClickMs = 400;
+
+    /// <summary>单击切换浮层前的等待：等过双击窗内可能到来的第二次按下，双击才不会顺带闪一下浮层。</summary>
+    private const double SingleTapDelayMs = 260;
+
     private readonly DispatcherQueueTimer _latchTimer;
+
+    /// <summary>等待判定的那次单击：双击到来即取消。</summary>
+    private readonly DispatcherQueueTimer _singleTapTimer;
 
     private bool _topHovered;
     private bool _bottomHovered;
     private bool _topLatched;
     private bool _bottomLatched;
+
+    private long _lastLeftPress;
+    private long _lastRightPress;
+
+    /// <summary>本次单击已经把浮层翻过了：双击到来时据此翻回去。</summary>
+    private bool _singleTapFired;
+
+    /// <summary>进度条当前占比，窗口尺寸变化后据此重算填充宽度。</summary>
+    private double _progress;
 
     public ExpandedAssembly()
     {
@@ -73,6 +92,16 @@ public sealed partial class ExpandedAssembly : UserControl
             Refresh();
         };
 
+        _singleTapTimer = DispatcherQueue.CreateTimer();
+        _singleTapTimer.Interval = TimeSpan.FromMilliseconds(SingleTapDelayMs);
+        _singleTapTimer.IsRepeating = false;
+        _singleTapTimer.Tick += (_, _) =>
+        {
+            _singleTapTimer.Stop();
+            _singleTapFired = true;
+            ToggleChrome();
+        };
+
         // 收起态作为初始位置：首次唤出才有滑入的位移
         TopBarOffset.Y = TopBarHiddenOffset;
         ControlsOffset.Y = ControlsHiddenOffset;
@@ -80,7 +109,7 @@ public sealed partial class ExpandedAssembly : UserControl
         // 封面不截获点击，整幅区域的点击都落到下方检测层
         Cover.IsHitTestVisible = false;
         Lyrics.IsHitTestVisible = false;
-        TapLayer.Tapped += (_, _) => ToggleChrome();
+        TapLayer.PointerPressed += OnTapLayerPressed;
 
         // 模式选项展开期间铺开点击遮罩；展开本身就说明手还在控制栏上，顺手续一次停留
         Controls.ModeSelectorChanged += (_, expanded) =>
@@ -89,6 +118,12 @@ public sealed partial class ExpandedAssembly : UserControl
             KeepChromeAlive();
         };
     }
+
+    /// <summary>播放页双击左键：切换播放/暂停。</summary>
+    public event Action? PlayPauseRequested;
+
+    /// <summary>播放页双击右键：窗口最大化与还原。</summary>
+    public event Action? WindowStateToggleRequested;
 
     public CoverBlend CoverView => Cover;
 
@@ -155,6 +190,76 @@ public sealed partial class ExpandedAssembly : UserControl
         }
     }
 
+    /// <summary>音频信息条文本：空串表示规格还没读到，行高照留。</summary>
+    public void SetFormatInfo(string text) => FormatInfo.Text = text;
+
+    /// <summary>底边进度：按当前曲目的播放占比填充，无曲目时归零。</summary>
+    public void SetProgress(double fraction, bool available)
+    {
+        _progress = available ? Math.Clamp(fraction, 0, 1) : 0;
+        UpdateProgressWidth();
+    }
+
+    private void UpdateProgressWidth() => ProgressFill.Width = Math.Max(0, ProgressHost.ActualWidth * _progress);
+
+    private void OnProgressHostSizeChanged(object sender, SizeChangedEventArgs e) => UpdateProgressWidth();
+
+    /// <summary>
+    /// 检测层上的按下：左键单击切换浮层，左键双击切播放，右键双击切窗口最大化。
+    ///
+    /// 单击不是立刻动作，而是等一个双击窗——否则双击的第一下会先把浮层翻出来再被第二下带走。
+    /// 等待期间第二次按下到来即取消并翻回已经发生的动作，画面不残留翻动痕迹。
+    /// 触摸与笔没有按键之分，按下即切换浮层。
+    /// </summary>
+    private void OnTapLayerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(TapLayer);
+        var properties = point.Properties;
+        var now = Environment.TickCount64;
+
+        if (properties.IsRightButtonPressed)
+        {
+            if (now - _lastRightPress <= DoubleClickMs)
+            {
+                _lastRightPress = 0;
+                WindowStateToggleRequested?.Invoke();
+            }
+            else
+            {
+                _lastRightPress = now;
+            }
+
+            return;
+        }
+
+        if (!properties.IsLeftButtonPressed)
+        {
+            // 触摸与笔没有按键之分，按下即切换浮层
+            ToggleChrome();
+            return;
+        }
+
+        if (now - _lastLeftPress <= DoubleClickMs)
+        {
+            _lastLeftPress = 0;
+            _singleTapTimer.Stop();
+            if (_singleTapFired)
+            {
+                // 上一次单击已经把浮层翻过去了，双击要的是「不翻」，这里翻回去
+                ToggleChrome();
+                _singleTapFired = false;
+            }
+
+            PlayPauseRequested?.Invoke();
+            return;
+        }
+
+        _lastLeftPress = now;
+        _singleTapFired = false;
+        _singleTapTimer.Stop();
+        _singleTapTimer.Start();
+    }
+
     private void Refresh()
     {
         SetTopVisible(_topHovered || _topLatched);
@@ -190,6 +295,7 @@ public sealed partial class ExpandedAssembly : UserControl
         }
 
         AnimateHost(ControlsHost, ControlsOffset, ControlsHiddenOffset, visible);
+        AnimateOpacity(ProgressHost, visible ? 1 : 0);
     }
 
     /// <summary>点控制栏以外的位置：先收起模式选项，这一次点击不再顺带收起浮层。</summary>
@@ -221,6 +327,23 @@ public sealed partial class ExpandedAssembly : UserControl
 
         Animate(host, "Opacity", host.Opacity, visible ? 1 : 0);
         Animate(offset, "Y", offset.Y, visible ? 0 : hiddenOffset);
+        storyboard.Begin();
+    }
+
+    /// <summary>只淡入淡出的元素（如底边进度条）：不参与位移，跟着控制栏一起进出。</summary>
+    private static void AnimateOpacity(UIElement element, double target)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = target,
+            Duration = new Duration(TimeSpan.FromMilliseconds(ChromeFadeMs)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(animation, element);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
         storyboard.Begin();
     }
 

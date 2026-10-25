@@ -18,129 +18,173 @@
     </UserControl.Resources>
 
     <!--
-        底部控制栏：播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表。
-        播放模式按下后图标转半圈变成右向箭头，中间四个键让位给三种模式选项，
-        选中即切换并收起——展开式选择，不是一个键循环轮换。
+        底部控制栏：收藏钉在最左，歌词管理钉在最右，中间是 播放模式 → 上一曲 → 播放/暂停 → 下一曲 → 播放列表。
+        模式按下后图标转半圈变成右向箭头，中间四个键让位给三种模式选项，选中即切换并收起。
+
+        图标数据一律写成绝对坐标：WinUI 的路径解析对「z 之后的相对 m」和「省略命令符的连续坐标」
+        处理不可靠，多子路径的图标会因此画歪（上一曲、暂停都踩过）。
     -->
-    <StackPanel
-        HorizontalAlignment="Center"
-        Orientation="Horizontal"
-        Spacing="6">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
         <Button
-            x:Name="ModeButton"
-            Click="OnModeClick"
+            x:Name="FavoriteButton"
+            Margin="24,0,0,0"
+            HorizontalAlignment="Left"
+            Click="OnFavoriteClick"
             Style="{StaticResource ControlButtonStyle}"
-            ToolTipService.ToolTip="播放模式">
-            <Grid
-                Width="32"
-                Height="32"
-                RenderTransformOrigin="0.5,0.5">
-                <Grid.RenderTransform>
-                    <RotateTransform x:Name="ModeRotation" />
-                </Grid.RenderTransform>
-
-                <!-- 收起态：当前模式的图标 -->
-                <Grid x:Name="ModeGlyph">
-                    <ui:MaterialIcon
-                        x:Name="ModeRepeatIcon"
-                        IconData="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-                    <ui:MaterialIcon
-                        x:Name="ModeRepeatOneIcon"
-                        IconData="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"
-                        Visibility="Collapsed" />
-                    <ui:MaterialIcon
-                        x:Name="ModeShuffleIcon"
-                        IconData="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
-                        Visibility="Collapsed" />
-                </Grid>
-
-                <!-- 展开态：右向箭头，与模式图标交叉淡入淡出 -->
+            ToolTipService.ToolTip="收藏">
+            <Grid>
                 <ui:MaterialIcon
-                    x:Name="ModeArrowIcon"
-                    IconData="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"
-                    Opacity="0" />
+                    x:Name="FavoriteBorderIcon"
+                    IconData="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z" />
+                <ui:MaterialIcon
+                    x:Name="FavoriteIcon"
+                    IconData="m12 21.35-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                    Visibility="Collapsed" />
             </Grid>
         </Button>
 
         <StackPanel
-            x:Name="TransportGroup"
+            Grid.Column="1"
+            HorizontalAlignment="Center"
             Orientation="Horizontal"
             Spacing="6">
-            <Button
-                x:Name="PreviousButton"
-                Click="OnPreviousClick"
-                Style="{StaticResource ControlButtonStyle}"
-                ToolTipService.ToolTip="上一曲">
-                <ui:MaterialIcon IconData="M6 6h2v12H6zm3.5 6 8.5 6V6l-8.5 6zm6.5 2.14L12.97 12 16 9.86v4.28z" />
-            </Button>
 
             <Button
-                x:Name="PlayPauseButton"
-                Click="OnPlayPauseClick"
+                x:Name="ModeButton"
+                Click="OnModeClick"
                 Style="{StaticResource ControlButtonStyle}"
-                ToolTipService.ToolTip="播放">
-                <Grid>
+                ToolTipService.ToolTip="播放模式">
+                <Grid
+                    Width="32"
+                    Height="32"
+                    RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <RotateTransform x:Name="ModeRotation" />
+                    </Grid.RenderTransform>
+
+                    <!-- 收起态：当前模式的图标 -->
+                    <Grid x:Name="ModeGlyph">
+                        <ui:MaterialIcon
+                            x:Name="ModeRepeatIcon"
+                            IconData="M7 7 H17 V10 L21 6 L17 2 V5 H5 V11 H7 Z M17 17 H7 V14 L3 18 L7 22 V19 H19 V13 H17 Z" />
+                        <ui:MaterialIcon
+                            x:Name="ModeRepeatOneIcon"
+                            IconData="M7 7 H17 V10 L21 6 L17 2 V5 H5 V11 H7 Z M17 17 H7 V14 L3 18 L7 22 V19 H19 V13 H17 Z M13 15 V9 H12 L10 10 V11 H11.5 V15 H13 Z"
+                            Visibility="Collapsed" />
+                        <ui:MaterialIcon
+                            x:Name="ModeShuffleIcon"
+                            IconData="M10.59 9.17 L5.41 4 L4 5.41 L9.17 10.58 Z M14.5 4 L16.54 6.04 L4 18.59 L5.41 20 L17.96 7.46 L20 9.5 V4 H14.5 Z M14.83 13.41 L13.42 14.82 L16.55 17.95 L14.5 20 H20 V14.5 L17.96 16.54 Z"
+                            Visibility="Collapsed" />
+                    </Grid>
+
+                    <!-- 展开态：右向箭头，与模式图标交叉淡入淡出 -->
                     <ui:MaterialIcon
-                        x:Name="PlayIcon"
-                        IconData="M10 8.64 15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z" />
-                    <ui:MaterialIcon
-                        x:Name="PauseIcon"
-                        IconData="M6 19h4V5H6v14zm8-14v14h4V5h-4z"
-                        Visibility="Collapsed" />
+                        x:Name="ModeArrowIcon"
+                        IconData="M8.59 16.59 L13.17 12 L8.59 7.41 L10 6 L16 12 L10 18 Z"
+                        Opacity="0" />
                 </Grid>
             </Button>
 
-            <Button
-                x:Name="NextButton"
-                Click="OnNextClick"
-                Style="{StaticResource ControlButtonStyle}"
-                ToolTipService.ToolTip="下一曲">
-                <ui:MaterialIcon IconData="m6 18 8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z" />
-            </Button>
+            <StackPanel
+                x:Name="TransportGroup"
+                Orientation="Horizontal"
+                Spacing="6">
+                <Button
+                    x:Name="PreviousButton"
+                    Click="OnPreviousClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    ToolTipService.ToolTip="上一曲">
+                    <ui:MaterialIcon IconData="M6 6 H8 V18 H6 Z M9.5 12 L18 18 V6 Z M16 14.14 L12.97 12 L16 9.86 V14.14 Z" />
+                </Button>
 
-            <Button
-                x:Name="PlaylistButton"
-                Click="OnPlaylistClick"
-                Style="{StaticResource ControlButtonStyle}"
-                ToolTipService.ToolTip="播放列表">
-                <ui:MaterialIcon IconData="M22 6h-5v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6zm-7 0H3v2h12V6zm0 4H3v2h12v-2zm-4 4H3v2h8v-2z" />
-            </Button>
+                <Button
+                    x:Name="PlayPauseButton"
+                    Click="OnPlayPauseClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    ToolTipService.ToolTip="播放">
+                    <Grid>
+                        <ui:MaterialIcon
+                            x:Name="PlayIcon"
+                            IconData="M10 8.64 L15.27 12 L10 15.36 V8.64 Z M8 5 V19 L19 12 Z" />
+                        <ui:MaterialIcon
+                            x:Name="PauseIcon"
+                            IconData="M6 19 H10 V5 H6 Z M14 5 V19 H18 V5 Z"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </Button>
+
+                <Button
+                    x:Name="NextButton"
+                    Click="OnNextClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    ToolTipService.ToolTip="下一曲">
+                    <ui:MaterialIcon IconData="M6 18 L14.5 12 L6 6 Z M8 9.86 L11.03 12 L8 14.14 V9.86 Z M16 6 H18 V18 H16 Z" />
+                </Button>
+
+                <Button
+                    x:Name="PlaylistButton"
+                    Click="OnPlaylistClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    ToolTipService.ToolTip="播放列表">
+                    <ui:MaterialIcon IconData="M22 6h-5v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6zm-7 0H3v2h12V6zm0 4H3v2h12v-2zm-4 4H3v2h8v-2z" />
+                </Button>
+            </StackPanel>
+
+            <!-- 展开期间的三种模式选项：当前模式纯白，其余压到 55% 白 -->
+            <StackPanel
+                x:Name="ModeOptions"
+                Orientation="Horizontal"
+                Spacing="6"
+                Visibility="Collapsed">
+                <Button
+                    x:Name="RepeatAllOption"
+                    Click="OnModeOptionClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    Tag="RepeatAll">
+                    <ui:MaterialIcon
+                        x:Name="RepeatAllOptionIcon"
+                        IconData="M7 7 H17 V10 L21 6 L17 2 V5 H5 V11 H7 Z M17 17 H7 V14 L3 18 L7 22 V19 H19 V13 H17 Z" />
+                </Button>
+                <Button
+                    x:Name="RepeatOneOption"
+                    Click="OnModeOptionClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    Tag="RepeatOne">
+                    <ui:MaterialIcon
+                        x:Name="RepeatOneOptionIcon"
+                        IconData="M7 7 H17 V10 L21 6 L17 2 V5 H5 V11 H7 Z M17 17 H7 V14 L3 18 L7 22 V19 H19 V13 H17 Z M13 15 V9 H12 L10 10 V11 H11.5 V15 H13 Z" />
+                </Button>
+                <Button
+                    x:Name="ShuffleOption"
+                    Click="OnModeOptionClick"
+                    Style="{StaticResource ControlButtonStyle}"
+                    Tag="Shuffle">
+                    <ui:MaterialIcon
+                        x:Name="ShuffleOptionIcon"
+                        IconData="M10.59 9.17 L5.41 4 L4 5.41 L9.17 10.58 Z M14.5 4 L16.54 6.04 L4 18.59 L5.41 20 L17.96 7.46 L20 9.5 V4 H14.5 Z M14.83 13.41 L13.42 14.82 L16.55 17.95 L14.5 20 H20 V14.5 L17.96 16.54 Z" />
+                </Button>
+            </StackPanel>
         </StackPanel>
 
-        <!-- 展开期间的三种模式选项：当前模式纯白，其余压到 55% 白 -->
-        <StackPanel
-            x:Name="ModeOptions"
-            Orientation="Horizontal"
-            Spacing="6"
-            Visibility="Collapsed">
-            <Button
-                x:Name="RepeatAllOption"
-                Click="OnModeOptionClick"
-                Style="{StaticResource ControlButtonStyle}"
-                Tag="RepeatAll">
-                <ui:MaterialIcon
-                    x:Name="RepeatAllOptionIcon"
-                    IconData="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-            </Button>
-            <Button
-                x:Name="RepeatOneOption"
-                Click="OnModeOptionClick"
-                Style="{StaticResource ControlButtonStyle}"
-                Tag="RepeatOne">
-                <ui:MaterialIcon
-                    x:Name="RepeatOneOptionIcon"
-                    IconData="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z" />
-            </Button>
-            <Button
-                x:Name="ShuffleOption"
-                Click="OnModeOptionClick"
-                Style="{StaticResource ControlButtonStyle}"
-                Tag="Shuffle">
-                <ui:MaterialIcon
-                    x:Name="ShuffleOptionIcon"
-                    IconData="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
-            </Button>
-        </StackPanel>
-    </StackPanel>
+        <!-- 歌词管理：入口先立着，面板待做，按下只占位不报错 -->
+        <Button
+            x:Name="LyricsButton"
+            Grid.Column="2"
+            Margin="0,0,24,0"
+            HorizontalAlignment="Right"
+            Style="{StaticResource ControlButtonStyle}"
+            ToolTipService.ToolTip="歌词管理">
+            <TextBlock
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="White"
+                Text="词" />
+        </Button>
+    </Grid>
 </UserControl>

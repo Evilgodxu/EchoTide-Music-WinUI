@@ -92,6 +92,24 @@ public sealed partial class MainWindow : Window
         };
     }
 
+    /// <summary>窗口最大化与还原：播放页双击右键用，只在普通窗口态下有效。</summary>
+    public void ToggleMaximize()
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter presenter)
+        {
+            return;
+        }
+
+        if (presenter.State == OverlappedPresenterState.Maximized)
+        {
+            presenter.Restore();
+        }
+        else
+        {
+            presenter.Maximize();
+        }
+    }
+
     /// <summary>
     /// 标题栏底色与前景：系统标题栏已收掉，这里只保留背景透明的设定，
     /// 避免某些状态下系统在顶边补一条不透明的色带。

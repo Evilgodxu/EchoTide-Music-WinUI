@@ -62,6 +62,9 @@ public sealed class HomeViewModel
 
     public IReadOnlyList<LyricLine> Lyrics { get; private set; } = Array.Empty<LyricLine>();
 
+    /// <summary>音频信息条文本：格式 · 位深/采样率 · 比特率，读不到的部分留空。</summary>
+    public string FormatInfo { get; private set; } = string.Empty;
+
     public bool IsPlaying => _player.IsPlaying;
 
     public PlayMode Mode => _player.Mode;
@@ -285,6 +288,36 @@ public sealed class HomeViewModel
 
     public void Seek(TimeSpan position) => _player.Seek(position);
 
+    public TimeSpan Duration => _player.Duration;
+
+    /// <summary>当前曲目是否已收藏。</summary>
+    public bool IsCurrentFavorite =>
+        CurrentTrack is { } track
+        && _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>切换当前曲目的收藏并写盘，返回切换后的状态。</summary>
+    public bool ToggleCurrentFavorite()
+    {
+        if (CurrentTrack is not { } track)
+        {
+            return false;
+        }
+
+        var favorited = _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
+        if (favorited)
+        {
+            _settings.Favorites.RemoveAll(path =>
+                string.Equals(path, track.FilePath, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            _settings.Favorites.Add(track.FilePath);
+        }
+
+        _settings.Save();
+        return !favorited;
+    }
+
     private void OnCurrentIndexChanged(int index) => _ = PresentAsync(index);
 
     /// <summary>
@@ -317,6 +350,7 @@ public sealed class HomeViewModel
         var lyrics = track.LyricPath is null
             ? Array.Empty<LyricLine>()
             : LrcParser.ParseFile(track.LyricPath);
+        var spec = await Task.Run(() => AudioSpecReader.Read(track.FilePath, track.Duration));
         var cover = await CoverLoader.LoadAsync(track.FilePath);
 
         // 取图期间已切到别的曲目：本次结果作废，避免上一首的封面盖住当前曲目
@@ -328,6 +362,7 @@ public sealed class HomeViewModel
         CoverImage = cover?.Image;
         Palette = cover?.Palette;
         Lyrics = lyrics;
+        FormatInfo = spec.Label;
         _presentedPath = track.FilePath;
         TrackPresented?.Invoke();
     }

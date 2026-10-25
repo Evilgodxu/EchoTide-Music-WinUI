@@ -72,6 +72,16 @@ public sealed partial class HomeScreen : UserControl
         };
         controls.PlaylistRequested += (_, _) => OpenPlaylist();
 
+        controls.FavoriteRequested += (_, _) =>
+        {
+            Assembly.ControlsView.SetFavorite(_viewModel.ToggleCurrentFavorite());
+            Assembly.KeepChromeAlive();
+        };
+
+        // 播放页的双击：左键切播放，右键切窗口最大化
+        Assembly.PlayPauseRequested += () => _viewModel.TogglePlayPause();
+        Assembly.WindowStateToggleRequested += () => (App.MainWindow as MainWindow)?.ToggleMaximize();
+
         Assembly.PlaylistView.TrackChosen += (_, index) =>
         {
             // 点到正在播放的那首就当作播放/暂停，与忆潮的列表行为一致
@@ -191,6 +201,8 @@ public sealed partial class HomeScreen : UserControl
 
         var track = _viewModel.CurrentTrack;
         Assembly.TopBarView.SetTrack(track?.Title, DescribeArtist(track));
+        Assembly.SetFormatInfo(_viewModel.FormatInfo);
+        Assembly.ControlsView.SetFavorite(_viewModel.IsCurrentFavorite);
         OnPlaybackStateChanged();
     }
 
@@ -208,7 +220,14 @@ public sealed partial class HomeScreen : UserControl
         }
     }
 
-    private void OnTick(object? sender, EventArgs e) => Assembly.LyricsView.UpdatePosition(_viewModel.Position);
+    private void OnTick(object? sender, EventArgs e)
+    {
+        Assembly.LyricsView.UpdatePosition(_viewModel.Position);
+
+        var duration = _viewModel.Duration;
+        var fraction = duration > TimeSpan.Zero ? _viewModel.Position.TotalSeconds / duration.TotalSeconds : 0;
+        Assembly.SetProgress(fraction, _viewModel.CurrentTrack is not null);
+    }
 
     private void ReflectUiState()
     {

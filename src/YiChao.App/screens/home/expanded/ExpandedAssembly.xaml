@@ -70,7 +70,34 @@
             <Grid.RenderTransform>
                 <TranslateTransform x:Name="ControlsOffset" />
             </Grid.RenderTransform>
-            <player:PlayerControls x:Name="Controls" />
+            <!-- 控制栏铺满窗口宽度：两端各钉一枚按钮，中间那组自己居中 -->
+            <StackPanel>
+                <!-- 音频信息条：格式 · 位深/采样率 · 比特率。信息未就绪时留空，控制栏不随其显隐跳动 -->
+                <TextBlock
+                    x:Name="FormatInfo"
+                    Margin="0,0,0,6"
+                    HorizontalAlignment="Center"
+                    FontSize="10"
+                    Foreground="White"
+                    Opacity="0.6" />
+                <player:PlayerControls x:Name="Controls" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 窗口底边的播放进度：细到不抢视线，随底部控制区一起显隐 -->
+        <Grid
+            x:Name="ProgressHost"
+            Height="2"
+            VerticalAlignment="Bottom"
+            IsHitTestVisible="False"
+            Opacity="0"
+            SizeChanged="OnProgressHostSizeChanged">
+            <Rectangle Fill="#26FFFFFF" />
+            <Rectangle
+                x:Name="ProgressFill"
+                Width="0"
+                HorizontalAlignment="Left"
+                Fill="#D9FFFFFF" />
         </Grid>
 
         <!-- 播放列表面板：唯一压在控制栏之上的浮层，打开时整屏归它 -->
