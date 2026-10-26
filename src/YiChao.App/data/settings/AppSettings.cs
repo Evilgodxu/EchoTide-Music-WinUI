@@ -34,6 +34,10 @@ public sealed class AppSettings
     [JsonPropertyName("closeBehavior")]
     public CloseBehavior CloseBehavior { get; set; } = CloseBehavior.Exit;
 
+    /// <summary>歌词排版：字号、可见行数与行间距。</summary>
+    [JsonPropertyName("lyricLayout")]
+    public LyricLayoutSettings LyricLayout { get; set; } = new();
+
     /// <summary>收藏：按曲目全路径记，与曲库标识同口径。</summary>
     [JsonPropertyName("favorites")]
     public List<string> Favorites { get; set; } = new();
@@ -49,6 +53,8 @@ public sealed class AppSettings
                 {
                     settings.LibraryPaths ??= new List<string>();
                     settings.Favorites ??= new List<string>();
+                    settings.LyricLayout ??= new LyricLayoutSettings();
+                    settings.LyricLayout.Normalize();
                     return settings;
                 }
             }

@@ -85,6 +85,16 @@ public sealed class HomeViewModel
 
     public CloseBehavior CloseBehavior => _settings.CloseBehavior;
 
+    public LyricLayoutSettings LyricLayout => _settings.LyricLayout;
+
+    /// <summary>保存歌词排版参数：归一化后写盘，歌词面板由视图重新量一次。</summary>
+    public void SetLyricLayout(LyricLayoutSettings layout)
+    {
+        layout.Normalize();
+        _settings.LyricLayout = layout;
+        _settings.Save();
+    }
+
     /// <summary>切换关闭行为：写盘后立即同步托盘图标的显隐。</summary>
     public void SetCloseBehavior(CloseBehavior behavior)
     {

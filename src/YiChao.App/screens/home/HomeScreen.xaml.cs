@@ -139,6 +139,11 @@ public sealed partial class HomeScreen : UserControl
         SettingsPage.ThemeChangeRequested += (_, mode) => _viewModel.SetTheme(mode);
         SettingsPage.LanguageChangeRequested += (_, language) => _viewModel.SetLanguage(language);
         SettingsPage.CloseBehaviorChangeRequested += (_, behavior) => _viewModel.SetCloseBehavior(behavior);
+        SettingsPage.LyricLayoutChangeRequested += (_, layout) =>
+        {
+            _viewModel.SetLyricLayout(layout);
+            Assembly.LyricsView.ApplyLayoutSettings();
+        };
         SettingsPage.ManageFoldersRequested += async (_, _) => await PromptForFoldersAsync();
     }
 

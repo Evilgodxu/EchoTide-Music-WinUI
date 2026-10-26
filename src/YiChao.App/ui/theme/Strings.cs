@@ -50,6 +50,15 @@ public static class Strings
     public static string SectionWindow => T("窗口", "Window");
     public static string EntryCloseBehavior => T("关闭按钮", "Close button");
 
+    // 歌词排版
+    public static string SectionLyricLayout => T("歌词排版", "Lyrics layout");
+    public static string EntryLyricFontSize => T("字号", "Font size");
+    public static string EntryLyricVisibleLines => T("显示行数", "Visible lines");
+    public static string EntryLyricLineSpacing => T("行间距", "Line spacing");
+    public static string LyricFontSizeValue(int value) => value.ToString();
+    public static string LyricVisibleLinesValue(int value) => T($"{value} 行", $"{value} lines");
+    public static string LyricLineSpacingValue(int value) => value.ToString();
+
     public static string CloseBehaviorName(CloseBehavior behavior) => behavior switch
     {
         CloseBehavior.MinimizeToTray => T("最小化到托盘", "Minimize to tray"),

@@ -4,8 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- 歌词视口：高度随面板尺寸变化，内容在其中整体平移；行溢出经裁剪与上下边缘渐隐处理 -->
-    <Grid x:Name="Viewport">
+    <!-- 歌词视口：高度由排版设置决定并居中，内容在其中整体平移；行溢出经裁剪与上下边缘渐隐处理 -->
+    <Grid x:Name="Viewport" VerticalAlignment="Center">
         <StackPanel x:Name="LinesHost" VerticalAlignment="Top">
             <StackPanel.RenderTransform>
                 <TranslateTransform x:Name="ContentOffset" />
