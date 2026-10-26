@@ -50,6 +50,8 @@ public static class Strings
     public static string SectionWindow => T("窗口", "Window");
     public static string EntryCloseBehavior => T("关闭按钮", "Close button");
 
+    public static string VersionLabel(string version) => T($"版本 {version}", $"Version {version}");
+
     // 歌词排版
     public static string SectionLyricLayout => T("歌词排版", "Lyrics layout");
     public static string EntryLyricFontSize => T("字号", "Font size");

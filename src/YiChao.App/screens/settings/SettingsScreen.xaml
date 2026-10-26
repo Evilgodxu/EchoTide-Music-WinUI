@@ -150,6 +150,13 @@
                         </entry:SettingsEntryView>
                     </StackPanel>
                 </Border>
+
+                <!-- 版本号：页面内容末尾居中，便于确认当前构建 -->
+                <TextBlock
+                    x:Name="VersionText"
+                    Margin="0,24,0,8"
+                    HorizontalAlignment="Center"
+                    FontSize="11" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

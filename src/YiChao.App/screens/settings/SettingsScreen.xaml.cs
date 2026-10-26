@@ -79,6 +79,9 @@ public sealed partial class SettingsScreen : UserControl
 
         FolderEntry.Title = Strings.EntryLibraryFolders;
         ApplySummary();
+
+        var version = typeof(SettingsScreen).Assembly.GetName().Version;
+        VersionText.Text = Strings.VersionLabel(version?.ToString(3) ?? string.Empty);
     }
 
     /// <summary>关闭行为变更后刷新副标题：由调用方在写盘完成后回填。</summary>
@@ -98,6 +101,7 @@ public sealed partial class SettingsScreen : UserControl
     private void ApplyTheme()
     {
         RootGrid.Background = new SolidColorBrush(AppTheme.Background);
+        VersionText.Foreground = new SolidColorBrush(AppTheme.OnSurfaceVariant);
 
         foreach (var label in new[] { AppearanceLabel, LyricLayoutLabel, LanguageLabel, WindowLabel, ScanLabel })
         {
