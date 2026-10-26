@@ -178,12 +178,9 @@
                                         MaxLines="1"
                                         Text="{x:Bind Title}"
                                         TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        FontSize="12"
-                                        Foreground="#8CFFFFFF"
-                                        MaxLines="1"
+                                    <playlist:PlaylistSubtitle
                                         Text="{x:Bind Subtitle, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
+                                        Highlight="{x:Bind Highlight, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <!-- 下一首播放：插队后换成减号 -->

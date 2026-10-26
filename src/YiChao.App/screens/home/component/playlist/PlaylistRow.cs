@@ -41,6 +41,8 @@ public sealed class PlaylistRow : INotifyPropertyChanged
 
     private string? _snippet;
 
+    private string? _highlight;
+
     public PlaylistRow(MusicTrack track, int index)
     {
         Track = track;
@@ -59,6 +61,9 @@ public sealed class PlaylistRow : INotifyPropertyChanged
 
     /// <summary>副标题：默认艺术家；歌词命中时换成命中的那句歌词。</summary>
     public string Subtitle => _snippet ?? Track.Artist;
+
+    /// <summary>副标题中需要强调的关键词；仅歌词命中时非空，艺术家副标题不强调。</summary>
+    public string? Highlight => _highlight;
 
     public string DurationText { get; }
 
@@ -148,16 +153,19 @@ public sealed class PlaylistRow : INotifyPropertyChanged
         Raise(nameof(NotQueuedVisibility));
     }
 
-    /// <summary>歌词命中片段；传 null 恢复显示艺术家。</summary>
-    public void SetSnippet(string? snippet)
+    /// <summary>歌词命中片段与其中要强调的关键词；传 null 恢复显示艺术家且不强调。</summary>
+    public void SetSnippet(string? snippet, string? highlight = null)
     {
-        if (string.Equals(_snippet, snippet, StringComparison.Ordinal))
+        if (string.Equals(_snippet, snippet, StringComparison.Ordinal)
+            && string.Equals(_highlight, highlight, StringComparison.Ordinal))
         {
             return;
         }
 
         _snippet = snippet;
+        _highlight = highlight;
         Raise(nameof(Subtitle));
+        Raise(nameof(Highlight));
     }
 
     private void Raise(string property) =>

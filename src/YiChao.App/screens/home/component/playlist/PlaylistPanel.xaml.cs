@@ -248,7 +248,7 @@ public sealed partial class PlaylistPanel : UserControl
             _viewRows = new List<PlaylistRow>(_searchResults.Count);
             foreach (var hit in _searchResults)
             {
-                hit.Row.SetSnippet(hit.Snippet);
+                hit.Row.SetSnippet(hit.Snippet, hit.Highlight);
                 _viewRows.Add(hit.Row);
             }
         }
@@ -330,7 +330,7 @@ public sealed partial class PlaylistPanel : UserControl
         {
             if (row.Matches(keyword))
             {
-                direct.Add(new SearchResult(row, null, 0));
+                direct.Add(new SearchResult(row, null, 0, null));
             }
             else
             {
@@ -400,7 +400,7 @@ public sealed partial class PlaylistPanel : UserControl
                 {
                     lock (hits)
                     {
-                        hits.Add(new SearchResult(row, snippet, matches));
+                        hits.Add(new SearchResult(row, snippet, matches, keyword));
                     }
                 }
             }
@@ -636,6 +636,6 @@ public sealed partial class PlaylistPanel : UserControl
         return false;
     }
 
-    /// <summary>搜索结果：标题/艺术家/专辑命中时片段为空，歌词命中时带片段与命中行数。</summary>
-    private readonly record struct SearchResult(PlaylistRow Row, string? Snippet, int Matches);
+    /// <summary>搜索结果：标题/艺术家/专辑命中时片段与关键词为空；歌词命中时带片段、命中行数与用于强调的关键词。</summary>
+    private readonly record struct SearchResult(PlaylistRow Row, string? Snippet, int Matches, string? Highlight);
 }
