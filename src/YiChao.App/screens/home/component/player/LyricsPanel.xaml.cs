@@ -23,8 +23,9 @@ namespace YiChao.Screens.Home.Component.Player;
 ///
 /// 排版参数（字号、可见行数、行间距）来自设置页，与忆潮横屏歌词排版同口径：默认 18 号、11 行、10 间距，
 /// 窗口高度不足时整体等比收缩，行数保持设定值，不再按窗口大小自动塞入更多行。
+/// 视口高度按整行（含译文槽位）折算，带译文的曲目同样能看到设定行数。
 ///
-/// 上下边缘按行在视口里的实际位置逐行压暗，形成与忆潮蒙层一致的渐隐带；
+/// 上下边缘各按半行做渐隐：只把最外沿那行压暗一部分，不吞掉整行；
 /// 滚动按行位置做 400ms 缓动，跨度过大时直接定位。滚动与行缩放由同一条 60fps 时钟驱动并直接写属性，
 /// 同一属性始终只有一个动画来源，不会因多段动画争抢而抖动。
 ///
@@ -33,8 +34,8 @@ namespace YiChao.Screens.Home.Component.Player;
 /// </summary>
 public sealed partial class LyricsPanel : UserControl
 {
-    /// <summary>上下渐隐带合计覆盖的行数：与忆潮的 FADE_TOTAL_LINES 一致，上下各半。</summary>
-    private const double FadeTotalLines = 1.6;
+    /// <summary>视口上下每侧渐隐带覆盖的行数：只压暗最外沿半行，不吞掉整行。</summary>
+    private const double FadeLinesPerEdge = 0.5;
 
     /// <summary>滚动缓动时长与忆潮一致。</summary>
     private const double ScrollDurationMs = 400;
@@ -83,7 +84,12 @@ public sealed partial class LyricsPanel : UserControl
     private double _translationGap = 2;
     private int _visibleLines = LyricLayoutSettings.DefaultVisibleLines;
     private double _viewportHeight = 408;
-    private double _fadeBand = 60;
+
+    /// <summary>一行歌词占用的完整高度（含译文与行间距），决定视口尺寸与渐隐带宽度。</summary>
+    private double _rowPitch = 38;
+
+    /// <summary>曲目带译文时所有行统一预留译文高度，保证可见行数不随译文有无而漂移。</summary>
+    private bool _reserveTranslationHeight;
 
     /// <summary>滚动与缩放共用一条 60fps 时钟，直接写属性值，不叠多段 Storyboard。</summary>
     private readonly DispatcherQueueTimer _animationTimer;
@@ -137,8 +143,8 @@ public sealed partial class LyricsPanel : UserControl
             LinesHost.Children.Add(row.Root);
         }
 
-        ApplyRowMetrics();
-        UpdateRowMetrics();
+        // 译文的有无会改变整行高度，进而改变视口能容纳的行数，建行后重算一次
+        UpdateViewportMetrics();
     }
 
     /// <summary>按播放位置推进：当前行变化时移窗，同帧内始终刷新扫光进度。</summary>
@@ -170,7 +176,7 @@ public sealed partial class LyricsPanel : UserControl
         }
 
         UpdateSweep(active, milliseconds);
-        // 滚动动画进行中行在视口里的位置每帧都在变，渐隐按当前位移重算
+        // 滚动过程中行在视口里的位置每帧都在变，渐隐按当前位移重算
         UpdateRowOpacity();
     }
 
@@ -198,26 +204,63 @@ public sealed partial class LyricsPanel : UserControl
     }
 
     /// <summary>
-    /// 上下边缘渐隐：按行在视口里的实际上下沿与渐隐带的比例压暗，
-    /// 行越接近边缘越透明。与按行号距离淡出相比，行高不等（带译文）时也能贴住真实边缘。
+    /// 上下边缘渐隐：渐隐带只有半行，按行落在带内的比例取平均透明度。
+    /// 整行取一个透明度，若按行的最外沿算，正好贴住视口边缘的那一行会被算成完全透明而消失；
+    /// 取平均则只把它压暗一部分，设定行数仍能在边缘看到。
     /// </summary>
     private void UpdateRowOpacity()
     {
-        var band = Math.Max(1, _fadeBand);
+        var band = Math.Max(1, FadeLinesPerEdge * _rowPitch);
         for (var i = 0; i < _rows.Count; i++)
         {
             var top = _rowTops[i] + ContentOffset.Y;
             var bottom = top + _rowHeights[i];
-            var topFade = EdgeAlpha(top, band);
-            var bottomFade = EdgeAlpha(_viewportHeight - bottom, band);
-            var edge = Math.Clamp(Math.Min(topFade, bottomFade), 0, 1);
+            var edge = Math.Min(
+                FadeAlphaOverRow(top, bottom, band),
+                FadeAlphaOverRow(_viewportHeight - bottom, _viewportHeight - top, band));
             _rows[i].Root.Opacity = (i == _activeIndex ? 1.0 : InactiveAlpha) * edge;
         }
     }
 
-    /// <summary>距边缘越远越不透明：带内按 smootherstep 收敛，带外完全不透明。</summary>
-    private static double EdgeAlpha(double distance, double band) =>
-        1 - CoverFade.SmoothFadeAlpha(distance / band);
+    /// <summary>
+    /// 一行在渐隐带内的平均不透明度。near/far 是行的上下沿到视口边缘的距离，
+    /// 对 smootherstep 求积得到整行均值，避免贴边行被一刀切成透明。
+    /// </summary>
+    private static double FadeAlphaOverRow(double near, double far, double band)
+    {
+        if (far <= 0)
+        {
+            return 0;
+        }
+
+        near = Math.Max(0, near);
+        if (near >= band)
+        {
+            return 1;
+        }
+
+        var span = far - near;
+        if (span <= 0)
+        {
+            return 1 - CoverFade.SmoothFadeAlpha(near / band);
+        }
+
+        var nearIntegral = FadeIntegral(near / band);
+        if (far <= band)
+        {
+            return (band / span) * (FadeIntegral(far / band) - nearIntegral);
+        }
+
+        // 带内部分取积分，带外部分恒为 1
+        return ((band / span) * (0.5 - nearIntegral)) + ((far - band) / span);
+    }
+
+    /// <summary>smootherstep 渐隐曲线 1 - S(x) 在 [0, x] 上的积分。</summary>
+    private static double FadeIntegral(double x)
+    {
+        var t = Math.Clamp(x, 0, 1);
+        return t - (t * t * t * t * t * t) + (3 * t * t * t * t * t) - (2.5 * t * t * t * t);
+    }
 
     private void UpdateSweep(int index, double milliseconds)
     {
@@ -251,7 +294,7 @@ public sealed partial class LyricsPanel : UserControl
         }
 
         var distance = Math.Abs(target - ContentOffset.Y);
-        var snapDistance = ScrollSnapRows * (_mainHeight + _rowSpacing);
+        var snapDistance = ScrollSnapRows * _rowPitch;
         if (distance > snapDistance || distance < 0.5)
         {
             // 长跨度（拖动进度、切歌）直接定位，避免整列长时间滚动
@@ -369,17 +412,26 @@ public sealed partial class LyricsPanel : UserControl
     /// <summary>
     /// 按设置计算视口与每行样式：设定行数决定视口高度，窗口放不下时整体等比收缩；
     /// 窗口更大也不再增加行数，避免歌词密密麻麻占满整屏。
+    /// 行高按整行（含译文）计算，否则带译文的曲目会因每行变高而少显示好几行。
     /// </summary>
     private void UpdateViewportMetrics()
     {
         var layout = App.Settings.LyricLayout;
         var visibleLines = Math.Max(3, layout.VisibleLines);
+        var reserveTranslation = HasTranslationLines();
 
         var fontSize = (double)layout.FontSize;
         var lineHeight = Math.Round(fontSize * 4 / 3);
         var mainHeight = lineHeight + 4;
         var spacing = (double)layout.LineSpacing;
-        var requested = (mainHeight + spacing) * visibleLines - spacing;
+        var translationFontSize = Math.Round(fontSize * TranslationScale);
+        var translationLineHeight = Math.Round(lineHeight * TranslationScale);
+        var translationGap = 2.0;
+
+        double RowPitch() =>
+            mainHeight + (reserveTranslation ? translationGap + translationLineHeight : 0) + spacing;
+
+        var requested = (RowPitch() * visibleLines) - spacing;
 
         var availableHeight = _availableHeight > 0 ? _availableHeight : requested;
         var fit = Math.Clamp(availableHeight / Math.Max(1, requested), 0.6, 1.0);
@@ -389,25 +441,29 @@ public sealed partial class LyricsPanel : UserControl
             lineHeight = Math.Max(12, Math.Round(lineHeight * fit));
             mainHeight = lineHeight + Math.Max(2, Math.Round(4 * fit));
             spacing = Math.Round(spacing * fit);
+            translationFontSize = Math.Round(fontSize * TranslationScale);
+            translationLineHeight = Math.Round(lineHeight * TranslationScale);
+            translationGap = Math.Max(1, Math.Round(2 * fit));
         }
 
         _fontSize = fontSize;
         _lineHeight = lineHeight;
         _mainHeight = mainHeight;
         _rowSpacing = spacing;
-        _translationFontSize = Math.Round(_fontSize * TranslationScale);
-        _translationLineHeight = Math.Round(_lineHeight * TranslationScale);
-        _translationGap = Math.Max(1, Math.Round(2 * fit));
+        _translationFontSize = translationFontSize;
+        _translationLineHeight = translationLineHeight;
+        _translationGap = translationGap;
         _visibleLines = visibleLines;
+        _reserveTranslationHeight = reserveTranslation;
+        _rowPitch = RowPitch();
 
-        var viewportHeight = ((mainHeight + spacing) * visibleLines) - spacing;
+        var viewportHeight = (_rowPitch * visibleLines) - spacing;
         _viewportHeight = Math.Min(availableHeight, Math.Max(mainHeight, viewportHeight));
         Viewport.Height = _viewportHeight;
         Viewport.Clip = new RectangleGeometry
         {
             Rect = new Rect(0, 0, Math.Max(1, _availableWidth), _viewportHeight),
         };
-        _fadeBand = Math.Max(1, _viewportHeight * FadeTotalLines / visibleLines);
 
         ApplyRowMetrics();
         UpdateRowMetrics();
@@ -421,6 +477,20 @@ public sealed partial class LyricsPanel : UserControl
         UpdateRowOpacity();
     }
 
+    /// <summary>曲目是否带译文；带译文时整行高度增加，可见行数需按加高后的行距折算。</summary>
+    private bool HasTranslationLines()
+    {
+        foreach (var line in _lines)
+        {
+            if (!string.IsNullOrWhiteSpace(line.Translation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void ApplyRowMetrics()
     {
         foreach (var row in _rows)
@@ -432,7 +502,8 @@ public sealed partial class LyricsPanel : UserControl
                 _rowSpacing,
                 _translationFontSize,
                 _translationLineHeight,
-                _translationGap);
+                _translationGap,
+                _reserveTranslationHeight);
         }
     }
 
@@ -509,7 +580,7 @@ public sealed partial class LyricsPanel : UserControl
             };
             Root.Children.Add(content);
 
-            ApplyMetrics(fontSize, lineHeight, mainHeight, rowSpacing, fontSize * TranslationScale, lineHeight * TranslationScale, 2);
+            ApplyMetrics(fontSize, lineHeight, mainHeight, rowSpacing, fontSize * TranslationScale, lineHeight * TranslationScale, 2, false);
         }
 
         public Grid Root { get; }
@@ -536,6 +607,10 @@ public sealed partial class LyricsPanel : UserControl
 
         public double Height { get; private set; }
 
+        /// <summary>
+        /// 应用排版参数。reserveTranslationHeight 为真时，即使本行没有译文也留出译文槽位，
+        /// 让同一首曲目的每行等高，可见行数才不会因译文疏密而忽多忽少。
+        /// </summary>
         public void ApplyMetrics(
             double fontSize,
             double lineHeight,
@@ -543,7 +618,8 @@ public sealed partial class LyricsPanel : UserControl
             double rowSpacing,
             double translationFontSize,
             double translationLineHeight,
-            double translationGap)
+            double translationGap,
+            bool reserveTranslationHeight)
         {
             Pending.FontSize = fontSize;
             Pending.LineHeight = lineHeight;
@@ -558,7 +634,7 @@ public sealed partial class LyricsPanel : UserControl
                 Translation.Margin = new Thickness(0, translationGap, 0, 0);
             }
 
-            Height = mainHeight + (Translation is null ? 0 : translationGap + translationLineHeight);
+            Height = mainHeight + (Translation is not null || reserveTranslationHeight ? translationGap + translationLineHeight : 0);
             Root.Height = Height;
             Root.Margin = new Thickness(0, 0, 0, rowSpacing);
         }

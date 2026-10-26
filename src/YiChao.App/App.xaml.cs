@@ -10,6 +10,13 @@ public partial class App : Application
 {
     public App()
     {
+        // 第二个进程只负责唤醒已有窗口，随即退出，避免同一用户并存多份播放实例
+        if (!SingleInstance.Acquire())
+        {
+            Environment.Exit(0);
+            return;
+        }
+
         InitializeComponent();
     }
 
@@ -44,6 +51,9 @@ public partial class App : Application
 
         Tray = new TrayIcon(ShowFromTray, ExitFromTray);
         Tray.SetVisible(Settings.CloseBehavior == CloseBehavior.MinimizeToTray);
+
+        // 窗口已就绪，开始监听后续启动请求：把已有窗口从托盘/最小化状态唤回前台
+        SingleInstance.StartListening(() => MainWindow?.DispatcherQueue.TryEnqueue(ShowFromTray));
     }
 
     /// <summary>关闭按钮与系统关闭共用：按设置决定直接退出还是缩到托盘。</summary>
