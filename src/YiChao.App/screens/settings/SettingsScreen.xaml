@@ -41,50 +41,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 歌词排版：字号、可见行数与行间距 -->
-                <TextBlock
-                    x:Name="LyricLayoutLabel"
-                    Margin="4,20,0,10"
-                    CharacterSpacing="120"
-                    FontSize="11"
-                    FontWeight="SemiBold" />
-                <Border x:Name="LyricLayoutCard" CornerRadius="20">
-                    <StackPanel>
-                        <entry:SettingsEntryView x:Name="LyricFontSizeEntry" Clicked="OnLyricFontSizeClick">
-                            <entry:SettingsEntryView.Icon>
-                                <Path
-                                    x:Name="LyricFontSizeIcon"
-                                    Width="24"
-                                    Height="24"
-                                    Data="M9 4v3h5v12h3V7h5V4H9zM5 12h3v7h2v-7h3V9H5v3z"
-                                    Stretch="Uniform" />
-                            </entry:SettingsEntryView.Icon>
-                        </entry:SettingsEntryView>
-
-                        <entry:SettingsEntryView x:Name="LyricLinesEntry" Clicked="OnLyricLinesClick">
-                            <entry:SettingsEntryView.Icon>
-                                <Path
-                                    x:Name="LyricLinesIcon"
-                                    Width="24"
-                                    Height="24"
-                                    Data="M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"
-                                    Stretch="Uniform" />
-                            </entry:SettingsEntryView.Icon>
-                        </entry:SettingsEntryView>
-
-                        <entry:SettingsEntryView x:Name="LyricSpacingEntry" Clicked="OnLyricSpacingClick">
-                            <entry:SettingsEntryView.Icon>
-                                <Path
-                                    x:Name="LyricSpacingIcon"
-                                    Width="24"
-                                    Height="24"
-                                    Data="M12 3l-4 4h3v10H8l4 4 4-4h-3V7h3l-4-4z"
-                                    Stretch="Uniform" />
-                            </entry:SettingsEntryView.Icon>
-                        </entry:SettingsEntryView>
-                    </StackPanel>
-                </Border>
-
                 <TextBlock
                     x:Name="LanguageLabel"
                     Margin="4,20,0,10"
@@ -148,6 +104,50 @@
                             </entry:SettingsEntryView.Icon>
                         </entry:SettingsEntryView>
 
+                    </StackPanel>
+                </Border>
+
+                <!-- 歌词排版：字号、可见行数与行间距 -->
+                <TextBlock
+                    x:Name="LyricLayoutLabel"
+                    Margin="4,20,0,10"
+                    CharacterSpacing="120"
+                    FontSize="11"
+                    FontWeight="SemiBold" />
+                <Border x:Name="LyricLayoutCard" CornerRadius="20">
+                    <StackPanel>
+                        <entry:SettingsEntryView x:Name="LyricFontSizeEntry" Clicked="OnLyricFontSizeClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="LyricFontSizeIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="M9 4v3h5v12h3V7h5V4H9zM5 12h3v7h2v-7h3V9H5v3z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
+
+                        <entry:SettingsEntryView x:Name="LyricLinesEntry" Clicked="OnLyricLinesClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="LyricLinesIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
+
+                        <entry:SettingsEntryView x:Name="LyricSpacingEntry" Clicked="OnLyricSpacingClick">
+                            <entry:SettingsEntryView.Icon>
+                                <Path
+                                    x:Name="LyricSpacingIcon"
+                                    Width="24"
+                                    Height="24"
+                                    Data="M12 3l-4 4h3v10H8l4 4 4-4h-3V7h3l-4-4z"
+                                    Stretch="Uniform" />
+                            </entry:SettingsEntryView.Icon>
+                        </entry:SettingsEntryView>
                     </StackPanel>
                 </Border>
             </StackPanel>
