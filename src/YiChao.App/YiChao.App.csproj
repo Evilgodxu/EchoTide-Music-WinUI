@@ -6,26 +6,48 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>YiChao</RootNamespace>
     <AssemblyName>YiChao</AssemblyName>
+    <!-- 首个正式版本号；设置页底部读取程序集版本显示 -->
+    <Version>0.0.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- 应用图标取自忆潮音乐的启动图标 -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
-    <!-- 非打包应用：直接以 exe 运行，依赖机器上已装 Windows App Runtime -->
+    <!-- 非打包应用：直接以 exe 运行；自包含运行时随发布一起输出，目标机免装 Windows App Runtime -->
     <WindowsPackageType>None</WindowsPackageType>
-    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 统一引用元包：它锁定 Base/Foundation/InteractiveExperiences/WinUI/DWrite/Runtime 等
+         全部配套组件的版本，保证自包含发布各组件版本自洽，避免手工拆分导致 WinRT 激活崩溃。
+         运行时策略为自包含，用户机器免装 Windows App Runtime。 -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!--
+    非打包模式（WindowsPackageType=None）下 dotnet publish 不会自动复制编译后的
+    XAML 资源（.xbf 与 resources.pri），而非打包应用正是靠它们经 ms-appx:/// 定位加载
+    XAML。缺了它们启动即 XamlParseException 崩溃。这里在发布完成后把 bin 里的
+    .xbf 与 .pri 一并复制到发布目录。
+  -->
+  <Target Name="CopyWinUIResourcesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <WinUIResource Include="$(TargetDir)**\*.xbf" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(WinUIResource)"
+      DestinationFiles="@(WinUIResource->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="$(TargetDir)resources.pri" DestinationFiles="$(PublishDir)resources.pri" Condition="Exists('$(TargetDir)resources.pri')" />
+    <Copy SourceFiles="$(TargetDir)YiChao.pri" DestinationFiles="$(PublishDir)resources.pri" Condition="!Exists('$(TargetDir)resources.pri') and Exists('$(TargetDir)YiChao.pri')" />
+  </Target>
 
 </Project>
