@@ -1,3 +1,5 @@
+using System.IO;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using YiChao.Data.Settings;
@@ -10,6 +12,26 @@ public partial class App : Application
 {
     public App()
     {
+        // 启动即捕获未处理异常：把堆栈写入崩溃日志，供自包含发布定位启动失败根因
+        UnhandledException += (_, e) =>
+        {
+            try
+            {
+                var log = Path.Combine(AppContext.BaseDirectory, "crash.log");
+                File.AppendAllText(log, $"[{DateTime.Now:O}] {e.Exception}\n\n");
+            }
+            catch { /* 日志写入失败不影响崩溃上报 */ }
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            try
+            {
+                var log = Path.Combine(AppContext.BaseDirectory, "crash.log");
+                File.AppendAllText(log, $"[{DateTime.Now:O}] AppDomain: {e.ExceptionObject}\n\n");
+            }
+            catch { }
+        };
+
         // 第二个进程只负责唤醒已有窗口，随即退出，避免同一用户并存多份播放实例
         if (!SingleInstance.Acquire())
         {
@@ -86,6 +108,10 @@ public partial class App : Application
 
         Tray?.Dispose();
         Tray = null;
+        // 放行关闭后窗口随消息循环销毁；单实例监听等后台源仍会让消息循环驻留，
+        // 需显式退出进程，否则窗口关闭后留下未回收的僵尸进程占用资源与文件句柄。
+        // 这里直接同步退出：窗口即将销毁，无需等待 DispatcherQueue 回调（关闭时它可能已停止）。
+        Environment.Exit(0);
     }
 
     /// <summary>隐藏主窗口但保留进程与播放：托盘图标在隐藏期间保持可见。</summary>
