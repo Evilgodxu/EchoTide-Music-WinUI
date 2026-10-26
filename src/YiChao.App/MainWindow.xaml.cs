@@ -21,6 +21,10 @@ public sealed partial class MainWindow : Window
         ApplyTitleBarColors();
         ApplyWindowIcon();
 
+        // 系统关闭（Alt+F4、任务栏关闭）与自绘关闭按钮共用同一套行为：
+        // 托盘模式下取消关闭并隐藏窗口，退出模式下放行并回收托盘图标
+        AppWindow.Closing += (_, args) => App.OnWindowClosing(args);
+
         if (Content is UIElement root)
         {
             SetupShortcuts(root);

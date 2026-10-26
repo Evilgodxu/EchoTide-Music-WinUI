@@ -138,6 +138,7 @@ public sealed partial class HomeScreen : UserControl
         SettingsPage.BackRequested += (_, _) => CloseSettings();
         SettingsPage.ThemeChangeRequested += (_, mode) => _viewModel.SetTheme(mode);
         SettingsPage.LanguageChangeRequested += (_, language) => _viewModel.SetLanguage(language);
+        SettingsPage.CloseBehaviorChangeRequested += (_, behavior) => _viewModel.SetCloseBehavior(behavior);
         SettingsPage.ManageFoldersRequested += async (_, _) => await PromptForFoldersAsync();
     }
 
@@ -376,8 +377,11 @@ public sealed partial class HomeScreen : UserControl
         ReflectUiState();
     }
 
-    private void UpdateSettingsSummary() =>
+    private void UpdateSettingsSummary()
+    {
         SettingsPage.SetLibrarySummary(_viewModel.LibraryPaths.Count, _viewModel.TrackCount);
+        SettingsPage.SetCloseBehavior(_viewModel.CloseBehavior);
+    }
 
     /// <summary>选目录需要窗口句柄，故由视图提供，对话框只负责收集结果。</summary>
     private async Task<string?> PickFolderAsync()

@@ -40,6 +40,8 @@ public sealed partial class SettingsScreen : UserControl
 
     public event EventHandler<AppLanguage>? LanguageChangeRequested;
 
+    public event EventHandler<CloseBehavior>? CloseBehaviorChangeRequested;
+
     /// <summary>刷新目录条目副标题：目录数与曲目数直接反映当前曲库状态。</summary>
     public void SetLibrarySummary(int folderCount, int trackCount)
     {
@@ -57,37 +59,44 @@ public sealed partial class SettingsScreen : UserControl
     {
         AppearanceLabel.Text = Strings.SectionAppearance;
         LanguageLabel.Text = Strings.SectionLanguage;
+        WindowLabel.Text = Strings.SectionWindow;
         ScanLabel.Text = Strings.SectionScan;
 
         ThemeEntry.Title = Strings.EntryTheme;
         ThemeEntry.Subtitle = Strings.ThemeName(AppTheme.Mode);
         LanguageEntry.Title = Strings.EntryLanguage;
         LanguageEntry.Subtitle = Strings.LanguageName(Strings.Mode);
+        CloseBehaviorEntry.Title = Strings.EntryCloseBehavior;
+        CloseBehaviorEntry.Subtitle = Strings.CloseBehaviorName(App.Settings.CloseBehavior);
 
         FolderEntry.Title = Strings.EntryLibraryFolders;
         ApplySummary();
     }
 
+    /// <summary>关闭行为变更后刷新副标题：由调用方在写盘完成后回填。</summary>
+    public void SetCloseBehavior(CloseBehavior behavior) =>
+        CloseBehaviorEntry.Subtitle = Strings.CloseBehaviorName(behavior);
+
     private void ApplyTheme()
     {
         RootGrid.Background = new SolidColorBrush(AppTheme.Background);
 
-        foreach (var label in new[] { AppearanceLabel, LanguageLabel, ScanLabel })
+        foreach (var label in new[] { AppearanceLabel, LanguageLabel, WindowLabel, ScanLabel })
         {
             label.Foreground = new SolidColorBrush(AppTheme.OnSurfaceVariant);
         }
 
-        foreach (var card in new[] { AppearanceCard, LanguageCard, ScanCard })
+        foreach (var card in new[] { AppearanceCard, LanguageCard, WindowCard, ScanCard })
         {
             card.Background = new SolidColorBrush(AppTheme.Surface);
         }
 
-        foreach (var icon in new[] { ThemeIcon, LanguageIcon, FolderIcon })
+        foreach (var icon in new[] { ThemeIcon, LanguageIcon, CloseBehaviorIcon, FolderIcon })
         {
             icon.Fill = new SolidColorBrush(AppTheme.OnSurfaceVariant);
         }
 
-        foreach (var entry in new[] { ThemeEntry, LanguageEntry, FolderEntry })
+        foreach (var entry in new[] { ThemeEntry, LanguageEntry, CloseBehaviorEntry, FolderEntry })
         {
             entry.ApplyTheme();
         }
@@ -121,6 +130,25 @@ public sealed partial class SettingsScreen : UserControl
         {
             LanguageChangeRequested?.Invoke(this, (AppLanguage)index);
         }
+    }
+
+    private async void OnCloseBehaviorClick(object sender, EventArgs e)
+    {
+        var options = new[]
+        {
+            Strings.CloseBehaviorName(CloseBehavior.Exit),
+            Strings.CloseBehaviorName(CloseBehavior.MinimizeToTray),
+        };
+        var selected = (int)App.Settings.CloseBehavior;
+        var index = await PickOptionAsync(Strings.EntryCloseBehavior, options, selected);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var behavior = (CloseBehavior)index;
+        CloseBehaviorChangeRequested?.Invoke(this, behavior);
+        SetCloseBehavior(behavior);
     }
 
     /// <summary>单选项对话框：确认后返回下标，取消返回 -1。</summary>

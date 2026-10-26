@@ -5,8 +5,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Media3D;
-using Windows.Foundation;
 using YiChao.Screens.Home.Component.Bar;
 using YiChao.Screens.Home.Component.Playlist;
 using YiChao.Screens.Home.Component.Player;
@@ -24,7 +22,7 @@ public enum ChromeEdge
 /// <summary>
 /// 横屏组装器：把封面栏、歌词栏与上、下两条浮层组装成横屏播放页。
 ///
-/// 形态职责只在本文件：封面取短边 75% 居中、歌词区加 3D 透视、两条浮层各自独立显隐。
+/// 形态职责只在本文件：封面取短边 75% 居中、歌词区平铺占满右栏、两条浮层各自独立显隐。
 ///
 /// 显隐由两个来源决定，取并集：指针停在对应边缘带里（悬停），或刚被点击锁定（两秒后解锁）。
 /// 悬停的进出即时生效——指针离开那条带就收起，不等计时；
@@ -36,12 +34,6 @@ public sealed partial class ExpandedAssembly : UserControl
 {
     /// <summary>封面边长占左栏较短边的比例，居中留出四边羽化的过渡带。</summary>
     private const double CoverFraction = 0.75;
-
-    /// <summary>歌词区绕 Y 轴的倾角，忆潮横屏取 -45°（强度 1）。</summary>
-    private const double LyricsRotationY = -45;
-
-    /// <summary>透视相机距离相对歌词区宽度的系数：越小透视越强。</summary>
-    private const double PerspectiveDepthFactor = 3.0;
 
     /// <summary>点击唤出后的停留时长。</summary>
     private const double ChromeLatchMs = 2000;
@@ -352,22 +344,5 @@ public sealed partial class ExpandedAssembly : UserControl
         var side = Math.Min(e.NewSize.Width, e.NewSize.Height) * CoverFraction;
         Cover.Width = side;
         Cover.Height = side;
-    }
-
-    private void OnLyricsZoneSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        LyricsZone.Clip = new RectangleGeometry { Rect = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
-
-        // WinUI 3 没有 Transform3DGroup：透视相机挂在父层，倾角挂在子层，两段变换由层级各自承担。
-        // 旋转中心必须显式给到栏位中心——CompositeTransform3D 的默认中心在左上角，
-        // 绕角旋转会把整块歌词甩出栏位
-        var depth = Math.Max(120, e.NewSize.Width * PerspectiveDepthFactor);
-        LyricsPerspective.Transform3D = new PerspectiveTransform3D { Depth = depth };
-        LyricsZone.Transform3D = new CompositeTransform3D
-        {
-            CenterX = e.NewSize.Width / 2,
-            CenterY = e.NewSize.Height / 2,
-            RotationY = LyricsRotationY,
-        };
     }
 }

@@ -15,3 +15,10 @@ public enum AppLanguage
     ChineseSimplified,
     English,
 }
+
+/// <summary>关闭按钮行为：直接结束进程，或缩到通知区托盘继续播放。</summary>
+public enum CloseBehavior
+{
+    Exit,
+    MinimizeToTray,
+}

@@ -47,6 +47,20 @@ public static class Strings
     public static string SectionLanguage => T("语言", "Language");
     public static string EntryLanguage => T("语言", "Language");
 
+    public static string SectionWindow => T("窗口", "Window");
+    public static string EntryCloseBehavior => T("关闭按钮", "Close button");
+
+    public static string CloseBehaviorName(CloseBehavior behavior) => behavior switch
+    {
+        CloseBehavior.MinimizeToTray => T("最小化到托盘", "Minimize to tray"),
+        _ => T("退出应用", "Exit app"),
+    };
+
+    // 托盘
+    public static string TrayShowWindow => T("显示主界面", "Show window");
+    public static string TrayExit => T("退出", "Exit");
+    public static string TrayTooltip => T("忆潮", "YiChao");
+
     public static string ThemeName(ThemeMode mode) => mode switch
     {
         ThemeMode.Light => T("浅色", "Light"),

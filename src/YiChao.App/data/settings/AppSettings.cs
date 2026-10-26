@@ -30,6 +30,10 @@ public sealed class AppSettings
     [JsonPropertyName("language")]
     public AppLanguage Language { get; set; } = AppLanguage.System;
 
+    /// <summary>关闭按钮行为：默认直接退出，与未提供托盘选项前的行为一致。</summary>
+    [JsonPropertyName("closeBehavior")]
+    public CloseBehavior CloseBehavior { get; set; } = CloseBehavior.Exit;
+
     /// <summary>收藏：按曲目全路径记，与曲库标识同口径。</summary>
     [JsonPropertyName("favorites")]
     public List<string> Favorites { get; set; } = new();

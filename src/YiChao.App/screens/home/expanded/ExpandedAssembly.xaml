@@ -8,7 +8,7 @@
     xmlns:player="using:YiChao.Screens.Home.Component.Player">
 
     <Grid x:Name="RootArea">
-        <!-- 双栏主体：左封面视觉区、右歌词透视区，各占一半，左右居中 -->
+        <!-- 双栏主体：左封面视觉区、右歌词区，各占一半，左右居中 -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -25,17 +25,14 @@
                     VerticalAlignment="Center" />
             </Grid>
 
-            <!-- 透视相机挂在父层，倾角挂在歌词栏自身：WinUI 3 没有 Transform3DGroup，两段变换只能分层给 -->
-            <Grid x:Name="LyricsPerspective" Grid.Column="1">
-                <Grid
-                    x:Name="LyricsZone"
-                    Padding="12"
-                    SizeChanged="OnLyricsZoneSizeChanged">
-                    <player:LyricsPanel
-                        x:Name="Lyrics"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Center" />
-                </Grid>
+            <Grid
+                x:Name="LyricsZone"
+                Grid.Column="1"
+                Padding="12">
+                <player:LyricsPanel
+                    x:Name="Lyrics"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch" />
             </Grid>
         </Grid>
 

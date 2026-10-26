@@ -83,6 +83,16 @@ public sealed class HomeViewModel
 
     public AppLanguage Language => _settings.Language;
 
+    public CloseBehavior CloseBehavior => _settings.CloseBehavior;
+
+    /// <summary>切换关闭行为：写盘后立即同步托盘图标的显隐。</summary>
+    public void SetCloseBehavior(CloseBehavior behavior)
+    {
+        _settings.CloseBehavior = behavior;
+        _settings.Save();
+        App.ApplyCloseBehavior(behavior);
+    }
+
     /// <summary>切换主题：写盘后立即下发，设置页与窗口按钮同步换色。</summary>
     public void SetTheme(ThemeMode mode)
     {

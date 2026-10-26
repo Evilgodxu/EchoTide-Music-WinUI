@@ -85,5 +85,5 @@ public sealed partial class CaptionButtons : UserControl
         UpdateMaximizeGlyph();
     }
 
-    private void OnCloseClick(object sender, RoutedEventArgs e) => _appWindow?.Destroy();
+    private void OnCloseClick(object sender, RoutedEventArgs e) => App.RequestClose();
 }
