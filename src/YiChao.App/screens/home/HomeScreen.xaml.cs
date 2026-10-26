@@ -72,12 +72,6 @@ public sealed partial class HomeScreen : UserControl
         };
         controls.PlaylistRequested += (_, _) => OpenPlaylist();
 
-        controls.FavoriteRequested += (_, _) =>
-        {
-            Assembly.ControlsView.SetFavorite(_viewModel.ToggleCurrentFavorite());
-            Assembly.KeepChromeAlive();
-        };
-
         // 播放页的双击：左键切播放，右键切窗口最大化
         Assembly.PlayPauseRequested += () => _viewModel.TogglePlayPause();
         Assembly.WindowStateToggleRequested += () => (App.MainWindow as MainWindow)?.ToggleMaximize();
@@ -104,10 +98,6 @@ public sealed partial class HomeScreen : UserControl
         {
             var favorite = _viewModel.ToggleFavorite(track);
             Assembly.PlaylistView.SetFavorite(track, favorite);
-            if (ReferenceEquals(track, _viewModel.CurrentTrack))
-            {
-                Assembly.ControlsView.SetFavorite(favorite);
-            }
         };
         Assembly.PlaylistView.PlayNextToggled += (_, track) =>
             Assembly.PlaylistView.SetQueued(track, _viewModel.ToggleQueueNext(track));
@@ -237,7 +227,6 @@ public sealed partial class HomeScreen : UserControl
         var track = _viewModel.CurrentTrack;
         Assembly.TopBarView.SetTrack(track?.Title, DescribeArtist(track));
         Assembly.SetFormatInfo(_viewModel.FormatInfo);
-        Assembly.ControlsView.SetFavorite(_viewModel.IsCurrentFavorite);
         OnPlaybackStateChanged();
     }
 

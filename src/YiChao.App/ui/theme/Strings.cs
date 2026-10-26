@@ -149,9 +149,4 @@ public static class Strings
     public static string LocatePlaying => T("定位播放", "Locate playing");
     public static string PlayNext => T("下一首播放", "Play next");
     public static string CancelPlayNext => T("取消下一首播放", "Cancel play next");
-
-    // 控制栏两端
-    public static string Favorite => T("收藏", "Favorite");
-    public static string Unfavorite => T("取消收藏", "Remove from favorites");
-    public static string LyricsManage => T("歌词管理", "Lyrics");
 }

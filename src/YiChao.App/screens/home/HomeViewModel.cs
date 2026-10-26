@@ -313,15 +313,8 @@ public sealed class HomeViewModel
 
     public TimeSpan Duration => _player.Duration;
 
-    /// <summary>当前曲目是否已收藏。</summary>
-    public bool IsCurrentFavorite => CurrentTrack is { } track && IsFavorite(track);
-
     public bool IsFavorite(MusicTrack track) =>
         _settings.Favorites.Contains(track.FilePath, StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>切换当前曲目的收藏并写盘，返回切换后的状态。</summary>
-    public bool ToggleCurrentFavorite() =>
-        CurrentTrack is { } track && ToggleFavorite(track);
 
     /// <summary>切换某一首的收藏并写盘，返回切换后的状态。</summary>
     public bool ToggleFavorite(MusicTrack track)
