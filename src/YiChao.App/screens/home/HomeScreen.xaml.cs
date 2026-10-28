@@ -236,6 +236,9 @@ public sealed partial class HomeScreen : UserControl
         Assembly.ControlsView.SetMode(_viewModel.Mode);
         Assembly.ControlsView.SetTransportEnabled(_viewModel.HasLibrary);
 
+        // 歌词扫光按播放态决定是否继续推进：暂停后位置不再变，插值也该一起停下
+        Assembly.LyricsView.SetPlaying(_viewModel.IsPlaying);
+
         // 自动续播与暂停/播放都会走到这里：面板开着就同步行内标记，列表本身不重铺
         if (Assembly.PlaylistView.IsOpen)
         {

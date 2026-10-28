@@ -67,9 +67,6 @@ public sealed partial class ExpandedAssembly : UserControl
     /// <summary>本次单击已经把浮层翻过了：双击到来时据此翻回去。</summary>
     private bool _singleTapFired;
 
-    /// <summary>进度条当前占比，窗口尺寸变化后据此重算填充宽度。</summary>
-    private double _progress;
-
     public ExpandedAssembly()
     {
         InitializeComponent();
@@ -186,15 +183,8 @@ public sealed partial class ExpandedAssembly : UserControl
     public void SetFormatInfo(string text) => FormatInfo.Text = text;
 
     /// <summary>底边进度：按当前曲目的播放占比填充，无曲目时归零。</summary>
-    public void SetProgress(double fraction, bool available)
-    {
-        _progress = available ? Math.Clamp(fraction, 0, 1) : 0;
-        UpdateProgressWidth();
-    }
-
-    private void UpdateProgressWidth() => ProgressFill.Width = Math.Max(0, ProgressHost.ActualWidth * _progress);
-
-    private void OnProgressHostSizeChanged(object sender, SizeChangedEventArgs e) => UpdateProgressWidth();
+    public void SetProgress(double fraction, bool available) =>
+        ProgressScale.ScaleX = available ? Math.Clamp(fraction, 0, 1) : 0;
 
     /// <summary>
     /// 检测层上的按下：左键单击切换浮层，左键双击切播放，右键双击切窗口最大化。

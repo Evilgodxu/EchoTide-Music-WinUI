@@ -81,20 +81,23 @@
             </StackPanel>
         </Grid>
 
-        <!-- 窗口底边的播放进度：细到不抢视线，随底部控制区一起显隐 -->
+        <!-- 窗口底边的播放进度：细到不抢视线，随底部控制区一起显隐。
+             填充条整幅铺开、只按占比做横向缩放——改宽度会每帧触发一次重排，缩放只走合成 -->
         <Grid
             x:Name="ProgressHost"
             Height="2"
             VerticalAlignment="Bottom"
             IsHitTestVisible="False"
-            Opacity="0"
-            SizeChanged="OnProgressHostSizeChanged">
+            Opacity="0">
             <Rectangle Fill="#26FFFFFF" />
             <Rectangle
                 x:Name="ProgressFill"
-                Width="0"
-                HorizontalAlignment="Left"
-                Fill="#D9FFFFFF" />
+                Fill="#D9FFFFFF"
+                RenderTransformOrigin="0,0.5">
+                <Rectangle.RenderTransform>
+                    <ScaleTransform x:Name="ProgressScale" ScaleX="0" ScaleY="1" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
         </Grid>
 
         <!-- 播放列表面板：唯一压在控制栏之上的浮层，打开时整屏归它 -->

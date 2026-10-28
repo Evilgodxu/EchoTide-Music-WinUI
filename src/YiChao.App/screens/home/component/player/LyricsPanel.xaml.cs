@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.UI.Dispatching;
+using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -26,8 +26,13 @@ namespace YiChao.Screens.Home.Component.Player;
 /// 视口高度按整行（含译文槽位）折算，带译文的曲目同样能看到设定行数。
 ///
 /// 上下边缘各按半行做渐隐：只把最外沿那行压暗一部分，不吞掉整行；
-/// 滚动按行位置做 400ms 缓动，跨度过大时直接定位。滚动与行缩放由同一条 60fps 时钟驱动并直接写属性，
+/// 滚动按行位置做 400ms 缓动，跨度过大时直接定位。滚动、缩放与扫光共用同一条显示帧时钟并直接写属性，
 /// 同一属性始终只有一个动画来源，不会因多段动画争抢而抖动。
+///
+/// 时钟跟着屏幕刷新率走：CompositionTarget.Rendering 每呈现一帧回调一次，60/120/165/180Hz 都按各自帧率推进，
+/// 不写死帧数。进度一律按真实时间折算（Stopwatch 计时），因此帧率只决定画面采样密度，不影响动画时长与缓动曲线。
+/// 位置采样只用来校准：扫光在帧间按行时长线性插值推进，采样频率低也不会出现一格一格的台阶。
+/// 没有动画在跑时立刻摘掉帧回调——挂着它会让 UI 线程每帧都被唤醒，白白耗电。
 ///
 /// 所有行一次性建好并整体平移，不按窗口虚拟化：切歌时重建一次，播放期只有一行在变（裁剪与两行的高亮切换），
 /// 逐帧代价与行数无关。
@@ -54,6 +59,15 @@ public sealed partial class LyricsPanel : UserControl
 
     /// <summary>末行没有下一行时间戳时按 3 秒点亮完毕，与忆潮一致。</summary>
     private const long LastLineFallbackDurationMs = 3000;
+
+    /// <summary>
+    /// 扫光与位置采样偏差超过这个时长才拉回。采样本身有几十毫秒的延迟与量化，
+    /// 阈值取一个采样周期：正常播放时插值自洽不会被反复纠偏，拖动进度造成的真实跳变又会立刻跟上。
+    /// </summary>
+    private const double SweepResyncToleranceMs = 50;
+
+    /// <summary>行透明度小于此差值不重写，渐隐带以外的行因此整帧不动。</summary>
+    private const double OpacityWriteEpsilon = 0.004;
 
     private static readonly Color PendingColor = Color.FromArgb((byte)Math.Round(PendingAlpha * 255), 0xFF, 0xFF, 0xFF);
     private static readonly Color ActiveColor = Color.FromArgb(255, 0xFF, 0xFF, 0xFF);
@@ -91,13 +105,25 @@ public sealed partial class LyricsPanel : UserControl
     /// <summary>曲目带译文时所有行统一预留译文高度，保证可见行数不随译文有无而漂移。</summary>
     private bool _reserveTranslationHeight;
 
-    /// <summary>滚动与缩放共用一条 60fps 时钟，直接写属性值，不叠多段 Storyboard。</summary>
-    private readonly DispatcherQueueTimer _animationTimer;
+    /// <summary>滚动、缩放与扫光共用一条显示帧时钟，直接写属性值，不叠多段 Storyboard。</summary>
+    private bool _frameHooked;
 
     private bool _scrollAnimating;
     private double _scrollFrom;
     private double _scrollTo;
-    private long _scrollStartedAt;
+    private double _scrollStartedAt;
+
+    /// <summary>扫光：从锚点比例按行时长线性推进，位置采样只负责校准。</summary>
+    private bool _sweepAnimating;
+    private double _sweepFrom;
+    private double _sweepStartedAt;
+    private double _sweepDuration;
+
+    /// <summary>已写入的裁剪宽度；亚像素级变化不重写，省掉无意义的整行重绘。</summary>
+    private double _sweepWidth = -1;
+
+    /// <summary>播放态：暂停时扫光不随帧推进，位置采样直接落位。</summary>
+    private bool _playing;
 
     public LyricsPanel()
     {
@@ -106,16 +132,60 @@ public sealed partial class LyricsPanel : UserControl
         EmptyHint.Visibility = Visibility.Collapsed;
         ContentOffset.Y = 0;
         SizeChanged += OnPanelSizeChanged;
-
-        _animationTimer = DispatcherQueue.CreateTimer();
-        _animationTimer.Interval = TimeSpan.FromMilliseconds(16);
-        _animationTimer.IsRepeating = true;
-        _animationTimer.Tick += (_, _) => OnAnimationTick();
+        Unloaded += (_, _) => StopFrameClock();
 
         UpdateViewportMetrics();
     }
 
     public bool HasPositioned { get; private set; }
+
+    /// <summary>
+    /// 动画时间轴。Environment.TickCount64 的分辨率只有约 15.6ms，
+    /// 拿它算 400ms 缓动会把曲线量化成二十来个台阶——高刷屏上正是这些台阶看起来像掉帧；
+    /// Stopwatch 走 QPC，微秒级，帧间差值是真实的。
+    /// </summary>
+    private static double NowMs() => Stopwatch.GetTimestamp() * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// 挂上显示帧时钟。只在有动画在跑时订阅：Rendering 一旦挂着就会逼 UI 线程每帧开工，
+    /// 闲时立刻摘掉，否则一直在替一帧不动的画面耗电。
+    /// </summary>
+    private void StartFrameClock()
+    {
+        if (_frameHooked)
+        {
+            return;
+        }
+
+        CompositionTarget.Rendering += OnFrame;
+        _frameHooked = true;
+    }
+
+    private void StopFrameClock()
+    {
+        if (!_frameHooked)
+        {
+            return;
+        }
+
+        CompositionTarget.Rendering -= OnFrame;
+        _frameHooked = false;
+    }
+
+    /// <summary>播放/暂停：暂停后扫光停在原处，恢复时从当前位置接着走。</summary>
+    public void SetPlaying(bool playing)
+    {
+        if (_playing == playing)
+        {
+            return;
+        }
+
+        _playing = playing;
+        if (playing && _sweepAnimating)
+        {
+            StartFrameClock();
+        }
+    }
 
     /// <summary>语言切换后重取占位文案。</summary>
     public void ApplyLanguage() => EmptyHint.Text = Strings.NoLyrics;
@@ -132,6 +202,10 @@ public sealed partial class LyricsPanel : UserControl
         LinesHost.Children.Clear();
         _activeIndex = -1;
         HasPositioned = false;
+        _sweepWidth = -1;
+        // 锚点清零：换歌后第一帧必须按新曲目的位置重新落位，不能沿用上一首的比例
+        _sweepDuration = 0;
+        _sweepFrom = 0;
         StopAnimations();
         ContentOffset.Y = 0;
 
@@ -147,7 +221,7 @@ public sealed partial class LyricsPanel : UserControl
         UpdateViewportMetrics();
     }
 
-    /// <summary>按播放位置推进：当前行变化时移窗，同帧内始终刷新扫光进度。</summary>
+    /// <summary>按播放位置推进：当前行变化时移窗，其余帧由显示帧时钟继续扫光。</summary>
     public void UpdatePosition(TimeSpan position)
     {
         if (_rows.Count == 0)
@@ -156,29 +230,79 @@ public sealed partial class LyricsPanel : UserControl
         }
 
         var milliseconds = position.TotalMilliseconds;
-        var active = 0;
-        for (var i = 0; i < _lines.Count; i++)
-        {
-            if (_lines[i].TimeMs <= milliseconds)
-            {
-                active = i;
-            }
-            else
-            {
-                break;
-            }
-        }
-
+        var active = ActiveLineAt(milliseconds);
         if (active != _activeIndex)
         {
             SetActive(active);
             HasPositioned = true;
         }
 
-        UpdateSweep(active, milliseconds);
-        // 滚动过程中行在视口里的位置每帧都在变，渐隐按当前位移重算
-        UpdateRowOpacity();
+        SyncSweep(milliseconds);
     }
+
+    /// <summary>二分找当前行：整首歌的位置更新都走这里，行数上千时也不必线性扫。</summary>
+    private int ActiveLineAt(double milliseconds)
+    {
+        var low = 0;
+        var high = _lines.Count - 1;
+        var found = 0;
+        while (low <= high)
+        {
+            var mid = (low + high) / 2;
+            if (_lines[mid].TimeMs <= milliseconds)
+            {
+                found = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return Math.Min(found, _rows.Count - 1);
+    }
+
+    /// <summary>
+    /// 用位置采样校准扫光。采样是 20Hz 的，帧间由时钟按行时长线性推进；
+    /// 偏差在容差内就不动，逐次硬对齐反而会把采样抖动翻译成扫光的顿挫。
+    /// </summary>
+    private void SyncSweep(double positionMs)
+    {
+        if (_activeIndex < 0 || _activeIndex >= _rows.Count)
+        {
+            return;
+        }
+
+        var line = _lines[_activeIndex];
+        var next = _activeIndex + 1 < _lines.Count
+            ? _lines[_activeIndex + 1].TimeMs
+            : line.TimeMs + LastLineFallbackDurationMs;
+        var duration = Math.Max(1.0, next - line.TimeMs);
+        var fraction = Math.Clamp((positionMs - line.TimeMs) / duration, 0, 1);
+        var now = NowMs();
+
+        // 没有锚点（刚切歌或刚建行）时无从比较偏差，直接按采样落位
+        var anchored = _sweepDuration > 0;
+        var drift = anchored ? Math.Abs(SweepFractionAt(now) - fraction) * duration : 0;
+        if (!anchored || !_playing || drift > SweepResyncToleranceMs)
+        {
+            _sweepFrom = fraction;
+            _sweepStartedAt = now;
+            _sweepDuration = duration;
+            WriteSweep(fraction);
+        }
+
+        _sweepAnimating = _playing && fraction < 1;
+        if (_sweepAnimating)
+        {
+            StartFrameClock();
+        }
+    }
+
+    /// <summary>当前时刻按插值应有的扫光比例；尚未锚定时就是锚点值。</summary>
+    private double SweepFractionAt(double now) =>
+        _sweepDuration <= 0 ? _sweepFrom : _sweepFrom + ((now - _sweepStartedAt) / _sweepDuration);
 
     private void SetActive(int index)
     {
@@ -197,6 +321,8 @@ public sealed partial class LyricsPanel : UserControl
         }
 
         var current = _rows[index];
+        // 换了行就重置已写宽度：新行哪怕宽度恰好相同也必须重写一次裁剪
+        _sweepWidth = -1;
         current.SetTranslationActive(true);
         AnimateScale(current, ActiveScale);
         AnimateOffset(OffsetTarget(index));
@@ -207,19 +333,34 @@ public sealed partial class LyricsPanel : UserControl
     /// 上下边缘渐隐：渐隐带只有半行，按行落在带内的比例取平均透明度。
     /// 整行取一个透明度，若按行的最外沿算，正好贴住视口边缘的那一行会被算成完全透明而消失；
     /// 取平均则只把它压暗一部分，设定行数仍能在边缘看到。
+    ///
+    /// 每帧都对全部行算一遍，但只有落在渐隐带里的那两三行会真的改变透明度；
+    /// 值没变就不写，省掉其余行的属性写入与随之而来的重绘。
     /// </summary>
     private void UpdateRowOpacity()
     {
         var band = Math.Max(1, FadeLinesPerEdge * _rowPitch);
         for (var i = 0; i < _rows.Count; i++)
         {
-            var top = _rowTops[i] + ContentOffset.Y;
-            var bottom = top + _rowHeights[i];
-            var edge = Math.Min(
-                FadeAlphaOverRow(top, bottom, band),
-                FadeAlphaOverRow(_viewportHeight - bottom, _viewportHeight - top, band));
-            _rows[i].Root.Opacity = (i == _activeIndex ? 1.0 : InactiveAlpha) * edge;
+            var alpha = (i == _activeIndex ? 1.0 : InactiveAlpha) * RowEdgeAlpha(i, band);
+            var row = _rows[i].Root;
+            if (Math.Abs(alpha - row.Opacity) < OpacityWriteEpsilon)
+            {
+                continue;
+            }
+
+            row.Opacity = alpha;
         }
+    }
+
+    /// <summary>一行在视口上下两条渐隐带内的综合透明度，取两侧中更暗的一侧。</summary>
+    private double RowEdgeAlpha(int index, double band)
+    {
+        var top = _rowTops[index] + ContentOffset.Y;
+        var bottom = top + _rowHeights[index];
+        return Math.Min(
+            FadeAlphaOverRow(top, bottom, band),
+            FadeAlphaOverRow(_viewportHeight - bottom, _viewportHeight - top, band));
     }
 
     /// <summary>
@@ -262,24 +403,29 @@ public sealed partial class LyricsPanel : UserControl
         return t - (t * t * t * t * t * t) + (3 * t * t * t * t * t) - (2.5 * t * t * t * t);
     }
 
-    private void UpdateSweep(int index, double milliseconds)
+    /// <summary>
+    /// 扫光进度落到裁剪宽度上。比例由时钟插值给出，与行数、位置采样频率无关；
+    /// 宽度变化不足半像素时不重写，慢速行里的重复写入就此省下。
+    /// </summary>
+    private void WriteSweep(double fraction)
     {
-        var row = _rows[index];
-        var line = _lines[index];
-        var nextTime = index + 1 < _lines.Count ? _lines[index + 1].TimeMs : line.TimeMs + LastLineFallbackDurationMs;
-        var duration = Math.Max(1, nextTime - line.TimeMs);
-        var length = Math.Max(1, line.Text.Length);
-        var perChar = (double)duration / length;
-        // 字符级进度折算为整行宽度的比例
-        var fraction = Math.Clamp((milliseconds - line.TimeMs) / perChar / length, 0, 1);
+        var row = _rows[_activeIndex];
         var width = row.Pending.ActualWidth;
         if (width <= 0 || fraction <= 0)
         {
+            _sweepWidth = 0;
             row.Fill.Clip = null;
             return;
         }
 
-        row.FillClip.Rect = new Rect(0, 0, width * fraction, row.MainHeight);
+        var target = width * Math.Clamp(fraction, 0, 1);
+        if (Math.Abs(target - _sweepWidth) < 0.5)
+        {
+            return;
+        }
+
+        _sweepWidth = target;
+        row.FillClip.Rect = new Rect(0, 0, target, row.MainHeight);
         row.Fill.Clip = row.FillClip;
     }
 
@@ -307,9 +453,9 @@ public sealed partial class LyricsPanel : UserControl
         // 当前值即动画起点：上一次滚动若未结束，从此刻实际位置接着走，不回弹
         _scrollFrom = ContentOffset.Y;
         _scrollTo = target;
-        _scrollStartedAt = Environment.TickCount64;
+        _scrollStartedAt = NowMs();
         _scrollAnimating = true;
-        _animationTimer.Start();
+        StartFrameClock();
     }
 
     private void StopScrollAnimation() => _scrollAnimating = false;
@@ -318,35 +464,49 @@ public sealed partial class LyricsPanel : UserControl
     {
         row.ScaleFrom = row.Scale.ScaleX;
         row.ScaleTo = target;
-        row.ScaleStartedAt = Environment.TickCount64;
+        row.ScaleStartedAt = NowMs();
         row.ScaleAnimating = true;
-        _animationTimer.Start();
+        StartFrameClock();
     }
 
     /// <summary>
-    /// 60fps 时钟：滚动与行缩放都在这里按缓动曲线直接写属性，
-    /// 同一属性始终只有一个动画来源，不会出现多段动画互相拉扯的抖动。
+    /// 逐帧推进：回调频率即屏幕刷新率，所有进度按真实时间折算，
+    /// 因此 60Hz 与 180Hz 走的是同一条曲线、同样时长，只是采样更密。
+    /// 没有动画在跑就让时钟自己停下，别留一个空转的帧回调。
     /// </summary>
-    private void OnAnimationTick()
+    private void OnFrame(object? sender, object e)
     {
-        var now = Environment.TickCount64;
+        var now = NowMs();
         var running = false;
 
         if (_scrollAnimating)
         {
             var progress = Math.Clamp((now - _scrollStartedAt) / ScrollDurationMs, 0, 1);
+            ContentOffset.Y = _scrollFrom + ((_scrollTo - _scrollFrom) * EaseOutCubic(progress));
+            UpdateRowOpacity();
+
             if (progress >= 1)
             {
-                ContentOffset.Y = _scrollTo;
                 _scrollAnimating = false;
             }
             else
             {
-                ContentOffset.Y = _scrollFrom + ((_scrollTo - _scrollFrom) * EaseOutCubic(progress));
                 running = true;
             }
+        }
 
-            UpdateRowOpacity();
+        if (_sweepAnimating && _playing)
+        {
+            var fraction = SweepFractionAt(now);
+            WriteSweep(fraction);
+            if (fraction >= 1)
+            {
+                _sweepAnimating = false;
+            }
+            else
+            {
+                running = true;
+            }
         }
 
         foreach (var row in _rows)
@@ -357,9 +517,7 @@ public sealed partial class LyricsPanel : UserControl
             }
 
             var progress = Math.Clamp((now - row.ScaleStartedAt) / ScaleDurationMs, 0, 1);
-            var scale = progress >= 1
-                ? row.ScaleTo
-                : row.ScaleFrom + ((row.ScaleTo - row.ScaleFrom) * EaseOutCubic(progress));
+            var scale = row.ScaleFrom + ((row.ScaleTo - row.ScaleFrom) * EaseOutCubic(progress));
             row.Scale.ScaleX = scale;
             row.Scale.ScaleY = scale;
 
@@ -375,7 +533,7 @@ public sealed partial class LyricsPanel : UserControl
 
         if (!running)
         {
-            _animationTimer.Stop();
+            StopFrameClock();
         }
     }
 
@@ -385,12 +543,13 @@ public sealed partial class LyricsPanel : UserControl
     private void StopAnimations()
     {
         _scrollAnimating = false;
+        _sweepAnimating = false;
         foreach (var row in _rows)
         {
             row.ScaleAnimating = false;
         }
 
-        _animationTimer.Stop();
+        StopFrameClock();
     }
 
     /// <summary>
@@ -597,7 +756,7 @@ public sealed partial class LyricsPanel : UserControl
 
         public double ScaleTo { get; set; }
 
-        public long ScaleStartedAt { get; set; }
+        public double ScaleStartedAt { get; set; }
 
         public bool ScaleAnimating { get; set; }
 

@@ -52,7 +52,7 @@ This build covers the local library only: scanning, playback, lyrics, cover art,
 
 - LRC line timestamps, inline word timestamps, `[tr]` translation blocks and hour-scale timestamps; stacked timestamps expand into separate lines.
 - Embedded lyrics: MP3 `USLT`, FLAC/OGG `LYRICS`/`SYNCEDLYRICS`, M4A `©lyr`.
-- The current line stays centred, lights up word by word and scales up, with its translated line; half-line fades at both edges; 60 fps scrolling.
+- The current line stays centred, lights up word by word and scales up, with its translated line; half-line fades at both edges; scrolling and word highlighting follow the display refresh rate.
 - Encoding detection: BOM first, then strict UTF-8, falling back to GB18030.
 
 ### Queue

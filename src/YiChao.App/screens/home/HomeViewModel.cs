@@ -38,7 +38,9 @@ public sealed class HomeViewModel
         _player.PlayingChanged += () => PlaybackStateChanged?.Invoke();
 
         _ticker = DispatcherQueue.GetForCurrentThread().CreateTimer();
-        _ticker.Interval = TimeSpan.FromMilliseconds(50);
+        // 只用来察觉换行与刷新进度条：帧间平滑由歌词面板自己的显示帧时钟负责，
+        // 这里取一帧的粒度，换行最多晚一帧被看到，高刷屏上不会觉得歌词慢了半拍
+        _ticker.Interval = TimeSpan.FromMilliseconds(16);
         _ticker.IsRepeating = true;
         _ticker.Tick += (_, _) => Tick?.Invoke(this, EventArgs.Empty);
     }
@@ -49,7 +51,7 @@ public sealed class HomeViewModel
     /// <summary>播放/暂停或模式变化，视图据此换图标。</summary>
     public event Action? PlaybackStateChanged;
 
-    /// <summary>播放位置推进，50ms 一次，供歌词推进使用。</summary>
+    /// <summary>播放位置推进，约一帧一次，供歌词换行与进度条使用。</summary>
     public event EventHandler? Tick;
 
     /// <summary>曲库被重扫并换了队列：面板据此重铺列表。</summary>
