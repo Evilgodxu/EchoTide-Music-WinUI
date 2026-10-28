@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Dispatching;
 using YiChao.Ui.Theme;
 
 namespace YiChao.Ui.Component.Window;
@@ -51,9 +52,10 @@ public sealed class TrayIcon : IDisposable
 
     private IntPtr _iconHandle;
 
-    private bool _ownsIcon;
-
     private bool _visible;
+
+    /// <summary>回调派发回 UI 队列：菜单与显示窗口都要等窗口过程返回后再做，避免重入。</summary>
+    private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
 
     public TrayIcon(Action onShow, Action onExit)
     {
@@ -86,6 +88,9 @@ public sealed class TrayIcon : IDisposable
         }
     }
 
+    /// <summary>图标是否真的挂上了通知区。挂不上时调用方不该隐藏窗口，否则进程会变成看不见也关不掉的实例。</summary>
+    public bool IsVisible => _visible;
+
     /// <summary>按关闭行为显示或移除托盘图标。</summary>
     public void SetVisible(bool visible)
     {
@@ -106,35 +111,19 @@ public sealed class TrayIcon : IDisposable
             return;
         }
 
-        AddIcon();
-        _visible = true;
+        _visible = AddIcon();
     }
 
     public void Dispose()
     {
+        // 只摘图标不拆窗口：调用方可能在窗口过程或关闭回调里，销毁 USER32 对象
+        // 会把句柄从回调栈下面抽掉，是崩溃与残骸进程的来源。窗口与图标句柄随进程回收。
         RemoveIcon();
         _visible = false;
-
-        if (_iconHandle != IntPtr.Zero)
-        {
-            if (_ownsIcon)
-            {
-                DestroyIcon(_iconHandle);
-            }
-
-            _iconHandle = IntPtr.Zero;
-        }
-
-        if (_windowHandle != IntPtr.Zero)
-        {
-            DestroyWindow(_windowHandle);
-            _windowHandle = IntPtr.Zero;
-        }
-
-        UnregisterClassW(WindowClassName, _moduleHandle);
+        _iconHandle = IntPtr.Zero;
     }
 
-    private void AddIcon()
+    private bool AddIcon()
     {
         _iconHandle = LoadTrayIcon();
 
@@ -151,7 +140,7 @@ public sealed class TrayIcon : IDisposable
             szInfoTitle = string.Empty,
         };
 
-        Shell_NotifyIconW(NIM_ADD, ref data);
+        return Shell_NotifyIconW(NIM_ADD, ref data);
     }
 
     private void RemoveIcon()
@@ -188,12 +177,10 @@ public sealed class TrayIcon : IDisposable
                 LR_LOADFROMFILE | LR_DEFAULTSIZE);
             if (handle != IntPtr.Zero)
             {
-                _ownsIcon = true;
                 return handle;
             }
         }
 
-        _ownsIcon = false;
         return LoadIconW(IntPtr.Zero, new IntPtr(32512)); // IDI_APPLICATION
     }
 
@@ -218,7 +205,7 @@ public sealed class TrayIcon : IDisposable
             {
                 case WM_LBUTTONUP:
                 case WM_LBUTTONDBLCLK:
-                    _onShow();
+                    _dispatcher.TryEnqueue(() => _onShow());
                     return IntPtr.Zero;
                 case WM_RBUTTONUP:
                 case WM_CONTEXTMENU:
@@ -252,13 +239,14 @@ public sealed class TrayIcon : IDisposable
         DestroyMenu(menu);
         PostMessageW(_windowHandle, 0, 0, IntPtr.Zero);
 
+        // 菜单返回后再派发：此刻仍处在窗口过程里，直接关窗会把正在使用的窗口拆掉
         if (command == 1)
         {
-            _onShow();
+            _dispatcher.TryEnqueue(() => _onShow());
         }
         else if (command == 2)
         {
-            _onExit();
+            _dispatcher.TryEnqueue(() => _onExit());
         }
     }
 
@@ -318,9 +306,6 @@ public sealed class TrayIcon : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern ushort RegisterClassW(ref WNDCLASSW windowClass);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool UnregisterClassW(string className, IntPtr instance);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr CreateWindowExW(
         uint exStyle,
@@ -336,9 +321,6 @@ public sealed class TrayIcon : IDisposable
         IntPtr instance,
         IntPtr param);
 
-    [DllImport("user32.dll")]
-    private static extern bool DestroyWindow(IntPtr hWnd);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr DefWindowProcW(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
 
@@ -353,9 +335,6 @@ public sealed class TrayIcon : IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr LoadIconW(IntPtr instance, IntPtr name);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr icon);
 
     [DllImport("user32.dll")]
     private static extern IntPtr CreatePopupMenu();

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -10,6 +11,9 @@ namespace YiChao;
 
 public partial class App : Application
 {
+    /// <summary>关窗后的观察窗口：留给消息循环自行结束，超过则判定为滞留并硬退。</summary>
+    private const int ExitWatchdogDelayMs = 2000;
+
     public App()
     {
         // 启动即捕获未处理异常：把堆栈写入崩溃日志，供自包含发布定位启动失败根因
@@ -32,13 +36,8 @@ public partial class App : Application
             catch { }
         };
 
-        // 第二个进程只负责唤醒已有窗口，随即退出，避免同一用户并存多份播放实例
-        if (!SingleInstance.Acquire())
-        {
-            Environment.Exit(0);
-            return;
-        }
-
+        // 第二个进程只负责唤醒已有窗口，随即退出；这一步在 Program.Main 里完成，
+        // 不能放在构造函数——那等于在 WinRT 启动回调里退出，会崩出残骸进程
         InitializeComponent();
     }
 
@@ -59,6 +58,9 @@ public partial class App : Application
 
     /// <summary>经托盘退出时置位：窗口关闭流程据此放行，不再拦截成最小化。</summary>
     public static bool IsExiting { get; private set; }
+
+    /// <summary>收尾已经开始：托盘已摘掉、看门狗已挂上，重复触发不再重来一遍。</summary>
+    private static bool _shutdownStarted;
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -96,7 +98,7 @@ public partial class App : Application
         }
     }
 
-    /// <summary>窗口关闭事件：托盘模式下拦截并隐藏，退出模式下放行并回收图标。</summary>
+    /// <summary>窗口关闭事件：托盘模式下拦截并隐藏，退出模式下放行并进入收尾。</summary>
     public static void OnWindowClosing(AppWindowClosingEventArgs args)
     {
         if (!IsExiting && Settings.CloseBehavior == CloseBehavior.MinimizeToTray)
@@ -106,12 +108,45 @@ public partial class App : Application
             return;
         }
 
+        BeginShutdown();
+    }
+
+    /// <summary>
+    /// 退出前收尾。这里只摘托盘图标、放行窗口关闭，不在调用栈里硬退进程：
+    /// 本方法运行在 WinUI 的关闭回调内部，此时 Environment.Exit 会把 COM 工作站
+    /// 从回调栈上拆掉（combase 抛 E_UNEXPECTED），进程崩成结束不掉的残骸。
+    /// 窗口关闭后消息循环自然结束、Main 返回，进程随即正常退出。
+    /// </summary>
+    private static void BeginShutdown()
+    {
+        if (_shutdownStarted)
+        {
+            return;
+        }
+
+        _shutdownStarted = true;
         Tray?.Dispose();
         Tray = null;
-        // 放行关闭后窗口随消息循环销毁；单实例监听等后台源仍会让消息循环驻留，
-        // 需显式退出进程，否则窗口关闭后留下未回收的僵尸进程占用资源与文件句柄。
-        // 这里直接同步退出：窗口即将销毁，无需等待 DispatcherQueue 回调（关闭时它可能已停止）。
-        Environment.Exit(0);
+        StartExitWatchdog();
+    }
+
+    /// <summary>
+    /// 兜底：窗口关掉后若消息循环没结束（WinUI 偶发如此），两秒后由独立线程硬退。
+    /// 硬退放在普通线程上而不是 UI 线程，避免又落回“在回调里退出”的老问题。
+    /// </summary>
+    private static void StartExitWatchdog()
+    {
+        var watchdog = new Thread(() =>
+        {
+            Thread.Sleep(ExitWatchdogDelayMs);
+            Environment.Exit(0);
+        })
+        {
+            IsBackground = true,
+            Name = "YiChao.ExitWatchdog",
+        };
+
+        watchdog.Start();
     }
 
     /// <summary>隐藏主窗口但保留进程与播放：托盘图标在隐藏期间保持可见。</summary>
@@ -123,6 +158,13 @@ public partial class App : Application
         }
 
         Tray?.SetVisible(true);
+
+        // 图标没挂上就别藏：藏起来之后既看不到界面也点不到退出，等于留下一个关不掉的进程
+        if (Tray is null || !Tray.IsVisible)
+        {
+            return;
+        }
+
         MainWindow.AppWindow.Hide();
     }
 
@@ -144,12 +186,13 @@ public partial class App : Application
         MainWindow.Activate();
     }
 
-    /// <summary>结束进程：先摘掉托盘图标，再走正常关窗流程。</summary>
+    /// <summary>
+    /// 从托盘菜单退出：标记意图后走正常关窗流程，收尾由 BeginShutdown 统一做。
+    /// 菜单回调发生在托盘窗口的消息过程里，这里不再自己拆托盘对象。
+    /// </summary>
     public static void ExitFromTray()
     {
         IsExiting = true;
-        Tray?.Dispose();
-        Tray = null;
         MainWindow?.Close();
     }
 
