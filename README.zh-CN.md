@@ -126,7 +126,8 @@
 ### 环境要求
 
 - Windows 10 1809（build 17763）或更高，仅 x64；建议 Windows 11。
-- 构建需要 .NET 10 SDK；运行需要 .NET 10 Desktop Runtime（当前发布为框架依赖）。
+- 运行不需任何额外组件：安装包自带 .NET 运行时与 Windows App SDK。
+- 构建需要 .NET 10 SDK。
 
 ### 构建
 
@@ -139,13 +140,23 @@ dotnet build src/YiChao.App/YiChao.App.csproj -c Release
 
 可执行文件输出到 `src\YiChao.App\bin\Release\net10.0-windows10.0.19041.0\win-x64\`。
 
-### 发布
+### 打包
 
 ```powershell
-dotnet publish src/YiChao.App/YiChao.App.csproj -c Release -o publish/0.0.1
+powershell -ExecutionPolicy Bypass -File installer\build.ps1
 ```
 
-发布目录自带 Windows App SDK 运行时；若目标机不想预装 .NET 10 Desktop Runtime，发布时加 `-p:SelfContained=true`。
+产物是 `publish\YiChao-<版本>-setup.exe`：简体中文安装向导，载荷自包含，全程离线、不检测也不下载任何运行时。脚本先做自包含发布，校验载荷里确实带了运行时（不满足直接失败，避免又产出“装完还要下载”的包），再调用 `installer\setup.iss` 编译安装器。
+
+随包交付的运行时：
+
+| 组件 | 版本 | 落地形式 |
+| --- | --- | --- |
+| .NET 运行时（`Microsoft.NETCore.App`） | 10.0.13 | `hostfxr.dll`、`hostpolicy.dll`、`coreclr.dll`、`System.Private.CoreLib.dll` 等 |
+| Windows App SDK | 2.5.1 | `Microsoft.WindowsAppRuntime.dll`、`Microsoft.ui.xaml.dll`、`CoreMessagingXP.dll` 等 |
+| XAML 资源 | — | `*.xbf`、`*.pri`、`Assets\app.ico` |
+
+其余导入的系统 DLL（`KERNEL32`、`ole32`、`combase`、`dcomp`、`d3d11`、`dwrite` 等）均为 Windows 10 1809 起自带；不需要 VC++ 运行库——载荷不导入 `vcruntime140` / `msvcp140`。
 
 ## 数据与日志
 

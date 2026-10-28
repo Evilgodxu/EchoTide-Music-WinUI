@@ -126,7 +126,8 @@ This build covers the local library only: scanning, playback, lyrics, cover art,
 ### Requirements
 
 - Windows 10 version 1809 (build 17763) or newer, x64 only; Windows 11 recommended.
-- .NET 10 SDK to build; .NET 10 Desktop Runtime to run (the current publish is framework-dependent).
+- Nothing else at run time: the installer carries the .NET runtime and the Windows App SDK.
+- .NET 10 SDK to build.
 
 ### Build
 
@@ -139,13 +140,23 @@ dotnet build src/YiChao.App/YiChao.App.csproj -c Release
 
 The executable is written to `src\YiChao.App\bin\Release\net10.0-windows10.0.19041.0\win-x64\`.
 
-### Publish
+### Package
 
 ```powershell
-dotnet publish src/YiChao.App/YiChao.App.csproj -c Release -o publish/0.0.1
+powershell -ExecutionPolicy Bypass -File installer\build.ps1
 ```
 
-The output bundles the Windows App SDK runtime; add `-p:SelfContained=true` if the target machine should not need the .NET 10 Desktop Runtime.
+Produces `publish\YiChao-<version>-setup.exe`: a Simplified Chinese wizard that installs a self-contained payload — offline, no prerequisite checks, no download prompts. The script publishes self-contained, refuses to continue if the payload is not actually self-contained, then compiles `installer\setup.iss`.
+
+What the package carries:
+
+| Component | Version | Shipped as |
+| --- | --- | --- |
+| .NET runtime (`Microsoft.NETCore.App`) | 10.0.13 | `hostfxr.dll`, `hostpolicy.dll`, `coreclr.dll`, `System.Private.CoreLib.dll`, … |
+| Windows App SDK | 2.5.1 | `Microsoft.WindowsAppRuntime.dll`, `Microsoft.ui.xaml.dll`, `CoreMessagingXP.dll`, … |
+| XAML resources | — | `*.xbf`, `*.pri`, `Assets\app.ico` |
+
+Everything else the binaries import (`KERNEL32`, `ole32`, `combase`, `dcomp`, `d3d11`, `dwrite`, …) ships with Windows 10 1809. No Visual C++ redistributable is needed: the payload does not import `vcruntime140` or `msvcp140`.
 
 ## Data and Logs
 
