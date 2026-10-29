@@ -14,6 +14,11 @@ public sealed partial class MainWindow : Window
     private const int DefaultWidth = 1200;
     private const int DefaultHeight = 780;
 
+    private const uint WM_CLOSE = 0x0010;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool PostMessageW(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -95,6 +100,15 @@ public sealed partial class MainWindow : Window
             args.Handled = true;
         };
     }
+
+    /// <summary>
+    /// 请求关闭窗口：走系统关闭消息，与用户点标题栏的关闭键同一条路径。
+    ///
+    /// 不用 Window.Close()：程序化 Close 会直接销毁窗口并绕过 Closing，
+    /// 若它发生在 dispatcher 回调里，会在 CoreMessagingXP 里崩出残骸进程。
+    /// </summary>
+    public void RequestClose() =>
+        PostMessageW(WinRT.Interop.WindowNative.GetWindowHandle(this), WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
 
     /// <summary>窗口最大化与还原：播放页双击右键用，只在普通窗口态下有效。</summary>
     public void ToggleMaximize()

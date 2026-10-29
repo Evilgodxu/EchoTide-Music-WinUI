@@ -8,6 +8,8 @@ namespace YiChao.Ui.Component.Window;
 ///
 /// 命名使用 Local\ 前缀，只在当前用户会话内生效，不同用户仍可各开一份。
 /// 互斥量只以“是否存在”作为标记，不参与加锁等待，因此不需要在退出时显式释放。
+///
+/// 另有一条退出事件：应用常驻托盘时安装程序关不掉它，改为发事件请它自己走正常退出流程。
 /// </summary>
 internal static class SingleInstance
 {
@@ -15,9 +17,13 @@ internal static class SingleInstance
 
     private const string ActivateEventName = @"Local\YiChao.App.Activate";
 
+    private const string QuitEventName = @"Local\YiChao.App.Quit";
+
     private static Mutex? _mutex;
 
     private static EventWaitHandle? _activateEvent;
+
+    private static EventWaitHandle? _quitEvent;
 
     private static Thread? _listener;
 
@@ -34,30 +40,39 @@ internal static class SingleInstance
         }
 
         _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateEventName);
+        _quitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, QuitEventName);
         return true;
     }
 
     /// <summary>
-    /// 后台线程等待唤醒请求，收到后在 UI 线程执行激活回调。
+    /// 后台线程等待唤醒与退出请求，收到后在 UI 线程执行对应回调。
     /// 监听线程设为后台线程，进程退出时无需额外收尾。
     /// </summary>
-    public static void StartListening(Action activate)
+    public static void StartListening(Action activate, Action quit)
     {
-        if (_activateEvent is null || _listener is not null)
+        if (_activateEvent is null || _quitEvent is null || _listener is not null)
         {
             return;
         }
 
+        var signals = new WaitHandle[] { _activateEvent, _quitEvent };
         _listener = new Thread(() =>
         {
-            while (_activateEvent.WaitOne())
+            while (true)
             {
-                activate();
+                if (WaitHandle.WaitAny(signals) == 0)
+                {
+                    activate();
+                }
+                else
+                {
+                    quit();
+                }
             }
         })
         {
             IsBackground = true,
-            Name = "YiChao.ActivateListener",
+            Name = "YiChao.InstanceListener",
         };
         _listener.Start();
     }

@@ -1,5 +1,5 @@
+using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -11,9 +11,6 @@ namespace YiChao;
 
 public partial class App : Application
 {
-    /// <summary>关窗后的观察窗口：留给消息循环自行结束，超过则判定为滞留并硬退。</summary>
-    private const int ExitWatchdogDelayMs = 2000;
-
     public App()
     {
         // 启动即捕获未处理异常：把堆栈写入崩溃日志，供自包含发布定位启动失败根因
@@ -56,6 +53,7 @@ public partial class App : Application
     /// <summary>通知区图标：关闭行为选托盘时显示，右键菜单可直接退出。</summary>
     public static TrayIcon? Tray { get; private set; }
 
+
     /// <summary>经托盘退出时置位：窗口关闭流程据此放行，不再拦截成最小化。</summary>
     public static bool IsExiting { get; private set; }
 
@@ -76,8 +74,14 @@ public partial class App : Application
         Tray = new TrayIcon(ShowFromTray, ExitFromTray);
         Tray.SetVisible(Settings.CloseBehavior == CloseBehavior.MinimizeToTray);
 
-        // 窗口已就绪，开始监听后续启动请求：把已有窗口从托盘/最小化状态唤回前台
-        SingleInstance.StartListening(() => MainWindow?.DispatcherQueue.TryEnqueue(ShowFromTray));
+        // 窗口已就绪，开始监听后续启动请求：把已有窗口从托盘/最小化状态唤回前台；
+        // 以及安装程序的退出请求——常驻托盘的实例关不掉窗口，只能由它自己走退出流程。
+        // 监听回调在后台线程上跑，这里先把 UI 队列交出去：从后台线程读 Window.DispatcherQueue
+        // 属于跨公寓访问，会以 RPC_E_WRONG_THREAD 崩掉正在运行的实例。
+        var uiQueue = DispatcherQueue.GetForCurrentThread();
+        SingleInstance.StartListening(
+            () => uiQueue.TryEnqueue(ShowFromTray),
+            () => uiQueue.TryEnqueue(ExitFromTray));
     }
 
     /// <summary>关闭按钮与系统关闭共用：按设置决定直接退出还是缩到托盘。</summary>
@@ -98,7 +102,7 @@ public partial class App : Application
         }
     }
 
-    /// <summary>窗口关闭事件：托盘模式下拦截并隐藏，退出模式下放行并进入收尾。</summary>
+    /// <summary>窗口关闭事件：托盘模式下拦截并隐藏，退出模式下放行并延后收尾。</summary>
     public static void OnWindowClosing(AppWindowClosingEventArgs args)
     {
         if (!IsExiting && Settings.CloseBehavior == CloseBehavior.MinimizeToTray)
@@ -108,14 +112,19 @@ public partial class App : Application
             return;
         }
 
-        BeginShutdown();
+        // 取消这次关闭，改在下一轮 UI 队列里退出：此刻仍在 WinUI 的关闭回调内部，
+        // 在这里摘托盘图标或结束进程都会把 COM 工作站从回调栈上拆掉，
+        // 进程随即在 combase 里崩成结束不掉的残骸。
+        args.Cancel = true;
+        DispatcherQueue.GetForCurrentThread().TryEnqueue(BeginShutdown);
     }
 
     /// <summary>
-    /// 退出前收尾。这里只摘托盘图标、放行窗口关闭，不在调用栈里硬退进程：
-    /// 本方法运行在 WinUI 的关闭回调内部，此时 Environment.Exit 会把 COM 工作站
-    /// 从回调栈上拆掉（combase 抛 E_UNEXPECTED），进程崩成结束不掉的残骸。
-    /// 窗口关闭后消息循环自然结束、Main 返回，进程随即正常退出。
+    /// 真正退出：摘掉托盘图标后结束进程。
+    ///
+    /// 用 TerminateProcess（Kill）而不是 Environment.Exit：后者会执行 DLL 拆卸与
+    /// 托管收尾，WinRT/COM 对象在这个阶段被释放会抛 E_UNEXPECTED / RPC_E_WRONG_THREAD，
+    /// 进程崩成需要重启才能清掉的残骸。本方法只做必然成功的事，没有可回滚的状态。
     /// </summary>
     private static void BeginShutdown()
     {
@@ -125,28 +134,17 @@ public partial class App : Application
         }
 
         _shutdownStarted = true;
-        Tray?.Dispose();
+        try
+        {
+            Tray?.Dispose();
+        }
+        catch (Exception)
+        {
+            // 图标摘不掉不该拦住退出
+        }
+
         Tray = null;
-        StartExitWatchdog();
-    }
-
-    /// <summary>
-    /// 兜底：窗口关掉后若消息循环没结束（WinUI 偶发如此），两秒后由独立线程硬退。
-    /// 硬退放在普通线程上而不是 UI 线程，避免又落回“在回调里退出”的老问题。
-    /// </summary>
-    private static void StartExitWatchdog()
-    {
-        var watchdog = new Thread(() =>
-        {
-            Thread.Sleep(ExitWatchdogDelayMs);
-            Environment.Exit(0);
-        })
-        {
-            IsBackground = true,
-            Name = "YiChao.ExitWatchdog",
-        };
-
-        watchdog.Start();
+        Process.GetCurrentProcess().Kill();
     }
 
     /// <summary>隐藏主窗口但保留进程与播放：托盘图标在隐藏期间保持可见。</summary>
@@ -187,13 +185,13 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 从托盘菜单退出：标记意图后走正常关窗流程，收尾由 BeginShutdown 统一做。
+    /// 从托盘菜单退出：标记意图后按系统关闭消息关窗，收尾由 BeginShutdown 统一做。
     /// 菜单回调发生在托盘窗口的消息过程里，这里不再自己拆托盘对象。
     /// </summary>
     public static void ExitFromTray()
     {
         IsExiting = true;
-        MainWindow?.Close();
+        (MainWindow as MainWindow)?.RequestClose();
     }
 
     /// <summary>关闭行为变更后同步托盘图标显隐。</summary>
